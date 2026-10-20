@@ -1,0 +1,9 @@
+{
+  "id": "example-battle-1",
+  "mode": "squadron_realistic",
+  "squadron": "EXAMPLE",
+  "result": "win",
+  "players": [
+    {"nickname": "tourist__", "tankKills": 2, "airKills": 1, "deaths": 1}
+  ]
+}
