@@ -7,5 +7,6 @@ RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --chown=node:node src ./src
 COPY --chown=node:node data ./data
 RUN mkdir -p /app/storage && chown node:node /app/storage
-USER node
-CMD ["node", "src/index.js"]
+# Bootstrap fixes mounted-volume ownership, then drops to uid/gid 1000.
+ENTRYPOINT ["node", "src/bootstrap.js"]
+CMD ["src/index.js"]
