@@ -1,0 +1,171 @@
+{
+  "row": {
+    "sessionId": "4ad212e8001639a5",
+    "mapDisplayName": "avg_ardennes",
+    "mode": "domination",
+    "difficulty": "realistic",
+    "playedAtUtc": "2026-10-20T15:34:07Z",
+    "durationSec": 291.1,
+    "playerCount": 16,
+    "team1Tag": "┾105HP┿",
+    "team2Tag": "╖TEHb╖",
+    "winnerTeam": 2,
+    "team1Kills": 1,
+    "team2Kills": 8
+  },
+  "scene": {
+    "match": {
+      "sessionId": "4ad212e8001639a5",
+      "difficulty": "realistic",
+      "winnerTeam": 2,
+      "durationSec": 291.1,
+      "scoreboardConfidence": "full"
+    },
+    "players": [
+      {
+        "name": "Macmep_Kpa6uK",
+        "userId": "10510842",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "Sniper_one_shot",
+        "userId": "11184051",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 0,
+        "kills": 1,
+        "deaths": 0
+      },
+      {
+        "name": "ЧулкиЭмиРоуз",
+        "userId": "133538273",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 0
+      },
+      {
+        "name": "Bratan_05",
+        "userId": "136976020",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "coop/Bot539",
+        "userId": "156158854",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 0
+      },
+      {
+        "name": "Twinkleezh",
+        "userId": "164933658",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 1,
+        "deaths": 1
+      },
+      {
+        "name": "tourist__",
+        "userId": "175849452",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "abylai_13_08",
+        "userId": "181559034",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "Aiviro",
+        "userId": "186572061",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "Мimino",
+        "userId": "2339014",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 1,
+        "kills": 0,
+        "deaths": 0
+      },
+      {
+        "name": "KocToJIoM_KZ",
+        "userId": "29750236",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "blacksmith86",
+        "userId": "34098364",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 1,
+        "kills": 2,
+        "deaths": 1
+      },
+      {
+        "name": "Shig0bik",
+        "userId": "50672308",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 0
+      },
+      {
+        "name": "Old_Pirate_RU",
+        "userId": "69884648",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 1,
+        "kills": 1,
+        "deaths": 0
+      },
+      {
+        "name": "Книга__Братан",
+        "userId": "80715620",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "UncleFeliks",
+        "userId": "9456180",
+        "team": 2,
+        "clanTag": "╖TEHb╖",
+        "groundKills": 1,
+        "kills": 0,
+        "deaths": 0
+      }
+    ]
+  }
+}

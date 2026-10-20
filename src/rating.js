@@ -1,6 +1,13 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+function battleIds(id){
+  if(typeof id!=='string')return [id];
+  let hex;
+  if(/^[0-9a-f]{16}$/i.test(id))hex=id.toLowerCase();
+  else if(/^\d{17,20}$/.test(id)&&BigInt(id)<=0xffffffffffffffffn)hex=BigInt(id).toString(16).padStart(16,'0');
+  return hex?[...new Set([hex,BigInt('0x'+hex).toString(),id])]:[id];
+}
 export function wtNick(name) {
   if (typeof name !== 'string') return null;
   const m = name.match(/^([^()]+?)\s+\(([^()]+)\)$/u);
@@ -31,16 +38,28 @@ export class RatingStore {
   constructor(path) {
     mkdirSync(dirname(path),{recursive:true}); this.db=new DatabaseSync(path);
     this.db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS guilds(guild TEXT PRIMARY KEY,squadron TEXT NOT NULL); CREATE TABLE IF NOT EXISTS battles(guild TEXT,squadron TEXT,battle TEXT,PRIMARY KEY(guild,squadron,battle)); CREATE TABLE IF NOT EXISTS stats(guild TEXT,squadron TEXT,uid TEXT,nick TEXT,tanks INTEGER DEFAULT 0,air INTEGER DEFAULT 0,deaths INTEGER DEFAULT 0,wins INTEGER DEFAULT 0,losses INTEGER DEFAULT 0,PRIMARY KEY(guild,squadron,uid,nick));`);
+    if(!this.db.prepare('PRAGMA table_info(guilds)').all().some(c=>c.name==='tag'))this.db.exec("ALTER TABLE guilds ADD COLUMN tag TEXT NOT NULL DEFAULT ''");
+    this.db.exec('CREATE TABLE IF NOT EXISTS pending_battles(guild TEXT,squadron TEXT,battle TEXT,payload TEXT NOT NULL,PRIMARY KEY(guild,squadron,battle))');
   }
   squad(guild){return this.db.prepare('SELECT squadron FROM guilds WHERE guild=?').get(guild)?.squadron;}
-  register(guild,name){name=name.trim();if(!name || name.length>100) throw Error('Укажи название полка до 100 символов.');const saved=this.db.prepare('INSERT OR IGNORE INTO guilds VALUES(?,?)').run(guild,name);if(!saved.changes)throw Error('Уже привязан полк: '+this.squad(guild)+'. Сначала выполни /pb unregister.');}
+  binding(guild){return this.db.prepare('SELECT squadron,tag FROM guilds WHERE guild=?').get(guild);}
+  setTag(guild,name,tag){this.db.prepare('UPDATE guilds SET tag=? WHERE guild=? AND squadron=?').run(tag??'',guild,name);}
+  register(guild,name,tag=''){name=name.trim();if(!name || name.length>100) throw Error('Укажи название полка до 100 символов.');const saved=this.db.prepare('INSERT OR IGNORE INTO guilds(guild,squadron,tag) VALUES(?,?,?)').run(guild,name,tag);if(!saved.changes)throw Error('Уже привязан полк: '+this.squad(guild)+'. Сначала выполни /pb unregister.');}
+  recordedBattle(guild,name,id){return battleIds(id).some(key=>this.db.prepare('SELECT 1 FROM battles WHERE guild=? AND squadron=? AND battle=?').get(guild,name,key));}
+  seenBattle(guild,name,id){return this.recordedBattle(guild,name,id)||battleIds(id).some(key=>this.db.prepare('SELECT 1 FROM pending_battles WHERE guild=? AND squadron=? AND battle=?').get(guild,name,key));}
+  enqueue(guild,b){validateBattle(b);if(this.seenBattle(guild,b.squadron,b.id))return;b={...b,id:battleIds(b.id)[0]};this.db.prepare('INSERT OR IGNORE INTO pending_battles VALUES(?,?,?,?)').run(guild,b.squadron,b.id,JSON.stringify(b));}
+  pending(guild,name){return this.db.prepare('SELECT payload FROM pending_battles WHERE guild=? AND squadron=? ORDER BY rowid LIMIT 50').all(guild,name).map(r=>JSON.parse(r.payload));}
+  pendingCount(guild){return this.db.prepare('SELECT count(*) AS n FROM pending_battles WHERE guild=? AND squadron=?').get(guild,this.squad(guild)??'').n;}
+  finishPending(guild,name,id){for(const key of battleIds(id))this.db.prepare('DELETE FROM pending_battles WHERE guild=? AND squadron=? AND battle=?').run(guild,name,key);}
   unregister(guild){this.db.prepare('DELETE FROM guilds WHERE guild=?').run(guild);}
   ingest(guild,b,members){
     validateBattle(b);const squad=this.squad(guild);
+    b={...b,id:battleIds(b.id)[0]};
     if(!squad || squad!==b.squadron.trim())throw Error('Полк отчёта не совпадает с /pb register.');
     const map=memberMap(members);let count=0;
     this.db.exec('BEGIN IMMEDIATE');
     try {
+      if(this.recordedBattle(guild,squad,b.id)){this.db.exec('ROLLBACK');return {duplicate:true,count:0};}
       const inserted=this.db.prepare('INSERT OR IGNORE INTO battles VALUES(?,?,?)').run(guild,squad,b.id);
       if(!inserted.changes){this.db.exec('ROLLBACK');return {duplicate:true,count:0};}
       for(const p of b.players){const m=map.get(p.nickname.toLowerCase());if(!m)continue;

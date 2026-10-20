@@ -5,15 +5,17 @@ export const rankCommand={name:'rank',description:'Рейтинг игроков
 export const registerOption={type:1,name:'register',description:'Привязать полк к серверу',options:[{type:3,name:'name',description:'Точное название полка',required:true,max_length:100,autocomplete:true}]};
 export const unregisterOption={type:1,name:'unregister',description:'Отвязать полк от сервера, сохранив статистику'};
 export const importOption={type:1,name:'import',description:'Загрузить нормализованный JSON-отчёт ПБ',options:[{type:11,name:'report',description:'JSON по примеру из архива',required:true}]};
-export async function handleRank(i,store,guildId,lookup=lookupSquadron,suggestions){
+export const statusOption={type:1,name:'status',description:'Состояние автоматического сбора ПБ'};
+export async function handleRank(i,store,guildId,lookup=lookupSquadron,suggestions,live){
  if(!i.isChatInputCommand() || i.guildId!==guildId)return false;
  const sub=i.commandName==='pb'?i.options.getSubcommand(false):null;
- if(i.commandName!=='rank' && !['register','unregister','import'].includes(sub))return false;
- const admin=['register','unregister','import'].includes(sub);
+ if(i.commandName!=='rank' && !['register','unregister','import','status'].includes(sub))return false;
+ const admin=['register','unregister','import','status'].includes(sub);
  await i.deferReply({ephemeral:admin});
  try{
   if(admin&&!i.memberPermissions?.has(PermissionFlagsBits.Administrator))throw Error('Эта команда доступна только администратору сервера.');
-  if(sub==='register'){if(store.squad(i.guildId))throw Error('Уже привязан полк: '+store.squad(i.guildId)+'. Сначала выполни /pb unregister.');const profile=await lookup(i.options.getString('name',true));store.register(i.guildId,profile.name);suggestions?.remember([profile]);await i.editReply({content:`Полк привязан: ${profile.name}`,allowedMentions:{parse:[]}});return true;}
+  if(sub==='status'){await i.editReply(live?.status()??'Автосбор не настроен.');return true;}
+  if(sub==='register'){if(store.squad(i.guildId))throw Error('Уже привязан полк: '+store.squad(i.guildId)+'. Сначала выполни /pb unregister.');const profile=await lookup(i.options.getString('name',true));store.register(i.guildId,profile.name,profile.tag??'');suggestions?.remember([profile]);await i.editReply({content:`Полк привязан: ${profile.name}`,allowedMentions:{parse:[]}});void live?.tick();return true;}
   if(sub==='unregister'){const previous=store.squad(i.guildId);store.unregister(i.guildId);await i.editReply(previous?'Полк отвязан. Накопленная статистика сохранена.':'К серверу пока не привязан полк.');return true;}
   if(!store.squad(i.guildId))throw Error('Сначала выполни /pb register name:название полка.');
   if(sub==='import'){

@@ -1,0 +1,171 @@
+{
+  "row": {
+    "sessionId": "4ad212e800165e8b",
+    "mapDisplayName": "avg_northern_india",
+    "mode": "domination",
+    "difficulty": "realistic",
+    "playedAtUtc": "2026-10-20T16:02:23Z",
+    "durationSec": 575.2,
+    "playerCount": 16,
+    "team1Tag": "┾105HP┿",
+    "team2Tag": "═AXYS║",
+    "winnerTeam": 1,
+    "team1Kills": 7,
+    "team2Kills": 7
+  },
+  "scene": {
+    "match": {
+      "sessionId": "4ad212e800165e8b",
+      "difficulty": "realistic",
+      "winnerTeam": 1,
+      "durationSec": 575.2,
+      "scoreboardConfidence": "full"
+    },
+    "players": [
+      {
+        "name": "Агент ЦИПСО",
+        "userId": "131860360",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 0,
+        "kills": 3,
+        "deaths": 1
+      },
+      {
+        "name": "Bratan_05",
+        "userId": "136976020",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "ACR-909@psn",
+        "userId": "13865622",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 2,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "3-200",
+        "userId": "140638637",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "coop/Bot509",
+        "userId": "145310202",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 0
+      },
+      {
+        "name": "Twinkleezh",
+        "userId": "164933658",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "tourist__",
+        "userId": "175849452",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 1,
+        "kills": 1,
+        "deaths": 1
+      },
+      {
+        "name": "abylai_13_08",
+        "userId": "181559034",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 2,
+        "deaths": 1
+      },
+      {
+        "name": "Aiviro",
+        "userId": "186572061",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 1,
+        "deaths": 0
+      },
+      {
+        "name": "Jalven",
+        "userId": "2249598",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "Inosa",
+        "userId": "27877195",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "KocToJIoM_KZ",
+        "userId": "29750236",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "o_AlaW__o",
+        "userId": "34082539",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "Казахстан",
+        "userId": "3847250",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 1,
+        "kills": 1,
+        "deaths": 1
+      },
+      {
+        "name": "Книга__Братан",
+        "userId": "80715620",
+        "team": 1,
+        "clanTag": "┾105HP┿",
+        "groundKills": 2,
+        "kills": 0,
+        "deaths": 1
+      },
+      {
+        "name": "Stroke  3",
+        "userId": "84041269",
+        "team": 2,
+        "clanTag": "═AXYS║",
+        "groundKills": 0,
+        "kills": 0,
+        "deaths": 1
+      }
+    ]
+  }
+}
