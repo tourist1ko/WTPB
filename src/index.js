@@ -2,9 +2,10 @@ import { Client, Events, GatewayIntentBits, REST, Routes } from 'discord.js';
 import { ScheduleService } from './schedule.js';
 import { command, handleInteraction } from './command.js';
 import { RatingStore } from './rating.js';
-import { rankCommand, registerOption, importOption, handleRank } from './rank-command.js';
+import { handleRankPage } from './rank-pages.js';
+import { rankCommand, registerOption, unregisterOption, importOption, handleRank } from './rank-command.js';
 const store=new RatingStore((process.env.DATA_DIR || './storage')+'/rank.sqlite');
-command.options.push(registerOption,importOption);
+command.options.push(registerOption,unregisterOption,importOption);
 
 const token = process.env.DISCORD_TOKEN?.trim();
 const guildId = process.env.GUILD_ID?.trim();
@@ -20,7 +21,7 @@ const client = new Client({intents:[GatewayIntentBits.Guilds, GatewayIntentBits.
 const rest = new REST({version:'10'}).setToken(token);
 
 client.on(Events.InteractionCreate, interaction => {
-  (async()=>{if(!await handleRank(interaction,store,guildId))await handleInteraction(interaction, service, guildId);})().catch(async error => {
+  (async()=>{if(await handleRankPage(interaction,store,guildId))return;if(!await handleRank(interaction,store,guildId))await handleInteraction(interaction, service, guildId);})().catch(async error => {
     logError('Command failed', error);
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply('Не удалось получить БР. Попробуй ещё раз.').catch(() => {});

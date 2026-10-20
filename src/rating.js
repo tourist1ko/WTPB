@@ -34,6 +34,7 @@ export class RatingStore {
   }
   squad(guild){return this.db.prepare('SELECT squadron FROM guilds WHERE guild=?').get(guild)?.squadron;}
   register(guild,name){name=name.trim();if(!name || name.length>100) throw Error('Укажи название полка до 100 символов.');this.db.prepare('INSERT INTO guilds VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET squadron=excluded.squadron').run(guild,name);}
+  unregister(guild){this.db.prepare('DELETE FROM guilds WHERE guild=?').run(guild);}
   ingest(guild,b,members){
     validateBattle(b);const squad=this.squad(guild);
     if(!squad || squad!==b.squadron.trim())throw Error('Полк отчёта не совпадает с /pb register.');
