@@ -1,11 +1,12 @@
 import WebSocket from 'ws';
 import { decodeReplay, battleForSquad } from './wtapi-codec.js';
 import { lookupSquadron } from './squadron.js';
+import { getGuildMembers } from './members.js';
 
 const STREAM='wss://wtapi.dev/v1/replays/ws/sqb';
 export class LiveBattles {
- constructor({key,store,client,guildId,lookup=lookupSquadron,Socket=WebSocket,log=console.log}) {
-  Object.assign(this,{key,store,client,guildId,lookup,Socket,log});
+ constructor({key,store,client,guildId,lookup=lookupSquadron,Socket=WebSocket,log=console.log,membersForGuild=getGuildMembers}) {
+  Object.assign(this,{key,store,client,guildId,lookup,Socket,log,membersForGuild});
   this.state=key?'Ожидание подключения.':'Автосбор выключен: не задан WTAPI_KEY.';
   this.failures=0;this.stopped=true;this.draining=false;
  }
@@ -59,7 +60,7 @@ export class LiveBattles {
    const binding=this.store.binding(this.guildId);if(!binding)return;
    const pending=this.store.pending(this.guildId,binding.squadron);if(!pending.length)return;
    const guild=this.client.guilds.cache.get(this.guildId);if(!guild)throw Error('Discord-сервер недоступен. Бои сохранены в очереди.');
-   const members=await guild.members.fetch();
+   const members=await this.membersForGuild(guild);
    for(const battle of pending){
     if(this.stopped||this.store.squad(this.guildId)!==binding.squadron)break;
     const result=this.store.ingest(this.guildId,battle,members);

@@ -1,4 +1,8 @@
 import { Resvg } from '@resvg/resvg-js';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+const fontFiles=['DejaVuSans.ttf','DejaVuSans-Bold.ttf'].map(name=>fileURLToPath(new URL('../assets/fonts/'+name,import.meta.url)));
+const renderOptions={font:{loadSystemFonts:false,fontFiles,defaultFontFamily:'DejaVu Sans',sansSerifFamily:'DejaVu Sans'}};
 export const PAGE_SIZE = 15;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 export function pageState(total, requested=1) {
@@ -30,4 +34,8 @@ export function leaderboardSVG(rows,squad,page=1) {
   if(!selected.length)svg+=text(38,218,'Пока нет статистики.',18,'#a0a8b8');
   return svg+'</svg>';
 }
-export function leaderboard(rows,squad,page=1){return new Resvg(leaderboardSVG(rows,squad,page)).render().asPng();}
+export function renderLeaderboard(rows,squad,page=1){
+  if(fontFiles.some(path=>!existsSync(path)))throw Error('Не найдены встроенные шрифты. Обнови папку assets/fonts вместе с ботом.');
+  return new Resvg(leaderboardSVG(rows,squad,page),renderOptions).render();
+}
+export function leaderboard(rows,squad,page=1){return renderLeaderboard(rows,squad,page).asPng();}

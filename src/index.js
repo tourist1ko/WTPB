@@ -4,6 +4,7 @@ import { command, handleInteraction } from './command.js';
 import { RatingStore } from './rating.js';
 import { LiveBattles } from './wtapi-live.js';
 import { ArchiveBattles } from './tactical-live.js';
+import { memberRoster } from './members.js';
 import { handleRankPage } from './rank-pages.js';
 import { SquadronSuggestions, handleSquadronAutocomplete, suggestionsFile } from './squadron-autocomplete.js';
 const suggestions=new SquadronSuggestions({file:suggestionsFile()});
@@ -36,6 +37,14 @@ client.on(Events.InteractionCreate, interaction => {
   });
 });
 client.on(Events.Error, error => logError('Discord', error));
+client.on(Events.GuildMemberAdd,member=>memberRoster.change(member));
+client.on(Events.GuildMemberUpdate,(_old,member)=>memberRoster.change(member));
+client.on(Events.GuildMemberRemove,member=>memberRoster.change(member,true));
+client.on(Events.GuildUnavailable,guild=>memberRoster.invalidate(guild));
+for(const event of [Events.ShardDisconnect,Events.ShardResume,Events.ShardReady])client.on(event,(first,second)=>{
+  const shard=event===Events.ShardDisconnect?second:first;
+  for(const guild of client.guilds.cache.values())if(guild.shardId===shard)memberRoster.invalidate(guild);
+});
 
 let timer;
 client.once(Events.ClientReady, async readyClient => {

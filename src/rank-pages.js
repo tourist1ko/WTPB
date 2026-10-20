@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } from 'discord.js';
 import { leaderboard, pageState } from './leaderboard.js';
+import { getGuildMembers } from './members.js';
 const squadKey = squad => createHash('sha256').update(squad).digest('hex').slice(0,12);
 export function rankPayload(rows,squad,owner,requested=1){
   const {page,pages}=pageState(rows.length,requested);
@@ -22,7 +23,7 @@ export async function handleRankPage(i,store,guildId){
   if(!squad || squadKey(squad)!==match[3]){await i.reply({content:'Привязка полка изменилась. Открой /rank заново.',flags:MessageFlags.Ephemeral});return true;}
   await i.deferUpdate();
   try{
-    const members=await i.guild.members.fetch();
+    const members=await getGuildMembers(i.guild);
     await i.editReply(rankPayload(store.rows(i.guildId,members),squad,i.user.id,Number(match[2])));
   }catch{await i.followUp({content:'Не удалось обновить таблицу. Попробуй ещё раз.',flags:MessageFlags.Ephemeral});}
   return true;

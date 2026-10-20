@@ -59,7 +59,7 @@ test('stream sends auth in header, queues before Discord fetch and recovers on r
  let socket,fetches=0;
  class Socket extends EventEmitter {constructor(url,options){super();socket=this;assert.equal(url,'wss://wtapi.dev/v1/replays/ws/sqb');assert.equal(options.headers.Authorization,'Bearer test-secret');}terminate(){this.emit('close',1000);}}
  const client={guilds:{cache:new Map([['g',{members:{fetch:async()=>{fetches++;if(fetches===1)throw Error('Discord temporarily unavailable');return members;}}}]])}};
- const logs=[];const live=new LiveBattles({key:'test-secret',store,client,guildId:'g',Socket,log:s=>logs.push(s)});
+ const logs=[];const live=new LiveBattles({key:'test-secret',store,client,guildId:'g',Socket,log:s=>logs.push(s),membersForGuild:g=>g.members.fetch()});
  try{
   live.start();socket.emit('open');socket.emit('message',pack(fixture()),true);
   await new Promise(resolve=>setImmediate(resolve));assert.equal(store.pendingCount('g'),1);assert.equal(store.rows('g',members).length,0);

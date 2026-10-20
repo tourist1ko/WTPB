@@ -1,10 +1,11 @@
 import { TacticalSource, archiveTeam } from './tactical-source.js';
 import { lookupSquadron } from './squadron.js';
+import { getGuildMembers } from './members.js';
 
 const DAY=86400000;
 export class ArchiveBattles {
- constructor({store,client,guildId,source=new TacticalSource(),lookup=lookupSquadron,log=console.log,now=Date.now,pause=ms=>new Promise(r=>setTimeout(r,ms))}){
-  Object.assign(this,{store,client,guildId,source,lookup,log,now,pause});
+ constructor({store,client,guildId,source=new TacticalSource(),lookup=lookupSquadron,log=console.log,now=Date.now,pause=ms=>new Promise(r=>setTimeout(r,ms)),membersForGuild=getGuildMembers}){
+  Object.assign(this,{store,client,guildId,source,lookup,log,now,pause,membersForGuild});
   this.stopped=true;this.state='Ожидание проверки архива ПБ.';this.nextPoll=0;this.nextRescan=0;
   this.retries=new Map();
  }
@@ -15,7 +16,7 @@ export class ArchiveBattles {
  async drain(binding){
   const pending=this.store.pending(this.guildId,binding.squadron);if(!pending.length)return;
   const guild=this.client.guilds.cache.get(this.guildId);if(!guild)throw Error('Discord-сервер недоступен. Полученные бои сохранены в очереди.');
-  const members=await guild.members.fetch();
+  const members=await this.membersForGuild(guild);
   for(const battle of pending){
    if(!this.same(binding))return;
    const result=this.store.ingest(this.guildId,battle,members);this.store.finishPending(this.guildId,battle.squadron,battle.id);

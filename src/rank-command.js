@@ -1,6 +1,7 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { rankPayload } from './rank-pages.js';
 import { lookupSquadron } from './squadron.js';
+import { getGuildMembers } from './members.js';
 export const rankCommand={name:'rank',description:'Рейтинг игроков полка по К/Д и winrate',options:[{type:4,name:'page',description:'Страница',min_value:1,max_value:1000}]};
 export const registerOption={type:1,name:'register',description:'Привязать полк к серверу',options:[{type:3,name:'name',description:'Точное название полка',required:true,max_length:100,autocomplete:true}]};
 export const unregisterOption={type:1,name:'unregister',description:'Отвязать полк от сервера, сохранив статистику'};
@@ -23,10 +24,10 @@ export async function handleRank(i,store,guildId,lookup=lookupSquadron,suggestio
    const url=new URL(a.url);if(url.protocol!=='https:'||!['cdn.discordapp.com','media.discordapp.net'].includes(url.hostname))throw Error('Неверный адрес вложения.');
    const response=await fetch(url,{signal:AbortSignal.timeout(15000),redirect:'error'});if(!response.ok)throw Error('Не удалось скачать отчёт.');
    const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length>1024*1024)throw Error('Отчёт слишком большой.');
-   const b=JSON.parse(new TextDecoder().decode(bytes));const members=await i.guild.members.fetch();const result=store.ingest(i.guildId,b,members);
+   const b=JSON.parse(new TextDecoder().decode(bytes));const members=await getGuildMembers(i.guild);const result=store.ingest(i.guildId,b,members);
    await i.editReply(result.duplicate?'Этот бой уже учтён.':`Отчёт учтён. Игроков: ${result.count}.`);
   }else{
-   const members=await i.guild.members.fetch();const rows=store.rows(i.guildId,members);const page=i.options.getInteger('page')??1;
+   const members=await getGuildMembers(i.guild);const rows=store.rows(i.guildId,members);const page=i.options.getInteger('page')??1;
    await i.editReply(rankPayload(rows,store.squad(i.guildId),i.user.id,page));
   }
  }catch(e){await i.editReply({content:e instanceof SyntaxError?'Некорректный JSON.':e.message,allowedMentions:{parse:[]}});}
