@@ -7,7 +7,7 @@ function interaction(sub,bits){const responses=[];return {responses,isChatInputC
 test('Manage Server cannot register/unregister, administrator can',async()=>{
  const store=new RatingStore(':memory:');
  for(const sub of ['register','unregister']){const i=interaction(sub,[PermissionFlagsBits.ManageGuild]);await handleRank(i,store,'g');assert.match(i.responses[0].content,/только администратору/);assert.equal(store.squad('g'),undefined);}
- const a=interaction('register',[PermissionFlagsBits.Administrator]);await handleRank(a,store,'g');assert.equal(store.squad('g'),'QZ');
+ const a=interaction('register',[PermissionFlagsBits.Administrator]);await handleRank(a,store,'g',async()=>({name:'QZ'}));assert.equal(store.squad('g'),'QZ');
  const b=interaction('unregister',[PermissionFlagsBits.Administrator]);await handleRank(b,store,'g');assert.equal(store.squad('g'),undefined);assert.match(b.responses[0],/сохранена/);store.db.close();
 });
 test('unregister preserves stats and duplicate ledger, other guild stays bound',()=>{

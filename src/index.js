@@ -3,6 +3,8 @@ import { ScheduleService } from './schedule.js';
 import { command, handleInteraction } from './command.js';
 import { RatingStore } from './rating.js';
 import { handleRankPage } from './rank-pages.js';
+import { SquadronSuggestions, handleSquadronAutocomplete, suggestionsFile } from './squadron-autocomplete.js';
+const suggestions=new SquadronSuggestions({file:suggestionsFile()});
 import { rankCommand, registerOption, unregisterOption, importOption, handleRank } from './rank-command.js';
 const store=new RatingStore((process.env.DATA_DIR || './storage')+'/rank.sqlite');
 command.options.push(registerOption,unregisterOption,importOption);
@@ -21,7 +23,7 @@ const client = new Client({intents:[GatewayIntentBits.Guilds, GatewayIntentBits.
 const rest = new REST({version:'10'}).setToken(token);
 
 client.on(Events.InteractionCreate, interaction => {
-  (async()=>{if(await handleRankPage(interaction,store,guildId))return;if(!await handleRank(interaction,store,guildId))await handleInteraction(interaction, service, guildId);})().catch(async error => {
+  (async()=>{if(await handleSquadronAutocomplete(interaction,store,guildId,suggestions))return;if(await handleRankPage(interaction,store,guildId))return;if(!await handleRank(interaction,store,guildId,undefined,suggestions))await handleInteraction(interaction, service, guildId);})().catch(async error => {
     logError('Command failed', error);
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply('Не удалось получить БР. Попробуй ещё раз.').catch(() => {});

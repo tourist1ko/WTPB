@@ -33,7 +33,7 @@ export class RatingStore {
     this.db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS guilds(guild TEXT PRIMARY KEY,squadron TEXT NOT NULL); CREATE TABLE IF NOT EXISTS battles(guild TEXT,squadron TEXT,battle TEXT,PRIMARY KEY(guild,squadron,battle)); CREATE TABLE IF NOT EXISTS stats(guild TEXT,squadron TEXT,uid TEXT,nick TEXT,tanks INTEGER DEFAULT 0,air INTEGER DEFAULT 0,deaths INTEGER DEFAULT 0,wins INTEGER DEFAULT 0,losses INTEGER DEFAULT 0,PRIMARY KEY(guild,squadron,uid,nick));`);
   }
   squad(guild){return this.db.prepare('SELECT squadron FROM guilds WHERE guild=?').get(guild)?.squadron;}
-  register(guild,name){name=name.trim();if(!name || name.length>100) throw Error('Укажи название полка до 100 символов.');this.db.prepare('INSERT INTO guilds VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET squadron=excluded.squadron').run(guild,name);}
+  register(guild,name){name=name.trim();if(!name || name.length>100) throw Error('Укажи название полка до 100 символов.');const saved=this.db.prepare('INSERT OR IGNORE INTO guilds VALUES(?,?)').run(guild,name);if(!saved.changes)throw Error('Уже привязан полк: '+this.squad(guild)+'. Сначала выполни /pb unregister.');}
   unregister(guild){this.db.prepare('DELETE FROM guilds WHERE guild=?').run(guild);}
   ingest(guild,b,members){
     validateBattle(b);const squad=this.squad(guild);
