@@ -5,6 +5,7 @@ import { RatingStore } from './rating.js';
 import { LiveBattles } from './wtapi-live.js';
 import { ArchiveBattles } from './tactical-live.js';
 import { SeasonUpdate } from './season-update.js';
+import { RequestLimiter, enforceRateLimit } from './rate-limit.js';
 import { handleRankPage } from './rank-pages.js';
 import { SquadronSuggestions, handleSquadronAutocomplete, suggestionsFile } from './squadron-autocomplete.js';
 const suggestions=new SquadronSuggestions({file:suggestionsFile()});
@@ -29,9 +30,10 @@ const live=statsSource==='wtapi'?new LiveBattles({key:process.env.WTAPI_KEY?.tri
 const seasons=new SeasonUpdate({store,guildId,service,live});
 live.onBattle=battle=>seasons.apply(battle);
 const rest = new REST({version:'10'}).setToken(token);
+const requestLimiter=new RequestLimiter();
 
 client.on(Events.InteractionCreate, interaction => {
-  (async()=>{if(await handleSquadronAutocomplete(interaction,store,guildId,suggestions))return;if(await handleRankPage(interaction,store,guildId,seasons))return;if(!await handleRank(interaction,store,guildId,undefined,suggestions,live,seasons))await handleInteraction(interaction, service, guildId);})().catch(async error => {
+  (async()=>{if(await enforceRateLimit(interaction,guildId,requestLimiter))return;if(await handleSquadronAutocomplete(interaction,store,guildId,suggestions))return;if(await handleRankPage(interaction,store,guildId,seasons))return;if(!await handleRank(interaction,store,guildId,undefined,suggestions,live,seasons))await handleInteraction(interaction, service, guildId);})().catch(async error => {
     logError('Command failed', error);
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply('Не удалось получить БР. Попробуй ещё раз.').catch(() => {});

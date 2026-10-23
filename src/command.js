@@ -2,8 +2,14 @@ export const command = {
   name: 'pb',
   description: 'Полковые бои War Thunder',
   type: 1,
-  options: [{type: 1, name: 'br', description: 'Показать текущий БР полковых боёв'}],
+  options: [{type: 1, name: 'br', description: 'Текущий и следующий БР, дата смены'}],
 };
+
+export function formatBR(info){
+  if(!info)return 'Қәзіргі БР - белгісіз\nКелесі БР - белгісіз';
+  const next=info.next?`${info.next.br} (${info.next.start.split('-').reverse().join('.')})`:'жарияланбаған';
+  return `Қәзіргі БР - ${info.current}\nКелесі БР - ${next}`;
+}
 
 export async function handleInteraction(interaction, service, guildId) {
   if (!interaction.isChatInputCommand() || interaction.commandName !== 'pb' || interaction.guildId !== guildId) return;
@@ -12,6 +18,6 @@ export async function handleInteraction(interaction, service, guildId) {
     await interaction.editReply('Доступна команда /pb br.');
     return;
   }
-  const br = await service.getBR();
-  await interaction.editReply(br ? `БР ${br}` : 'Текущий БР недоступен. Официальное расписание пока не получено.');
+  const info = await service.getBRInfo();
+  await interaction.editReply(formatBR(info));
 }

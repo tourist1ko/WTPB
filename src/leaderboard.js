@@ -17,8 +17,8 @@ export function leaderboardSVG(rows,squad,page=1,season) {
   const text=(x,y,s,size=19,color='#edf0f7',anchor='start',weight=400)=>`<text x="${x}" y="${y}" font-size="${size}" fill="${color}" text-anchor="${anchor}" font-weight="${weight}" font-family="DejaVu Sans">${esc(s)}</text>`;
   let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="${height}"><rect width="1100" height="${height}" rx="20" fill="#111318"/>`;
   svg+=text(38,42,`${squad.slice(0,45)} · Полковые бои`,15,'#a0a8b8');
-  if(season)svg+=text(1050,42,'Сезон '+season.label,13,'#a0a8b8','end');
-  svg+=text(38,88,'Лучшие в полку',30);
+  if(season)svg+=text(1050,42,season.label,13,'#a0a8b8','end');
+  svg+=text(38,88,'Статистики',30);
   svg+=text(50,151,'№',14,'#a0a8b8')+text(105,151,'Игрок',14,'#a0a8b8')+text(530,151,'К/Д',14,'#a0a8b8','end')+text(690,151,'WinRate',14,'#a0a8b8','end');
   svg+=text(855,138,'Танки',14,'#a0a8b8','end')+text(855,158,'(Убийство)',14,'#a0a8b8','end');
   svg+=text(1050,138,'Самолет',14,'#a0a8b8','end')+text(1050,158,'(Убийство)',14,'#a0a8b8','end');
@@ -32,7 +32,6 @@ export function leaderboardSVG(rows,squad,page=1,season) {
     svg+=text(530,y+42,r.kd===Infinity?'∞':r.kd.toFixed(2),23,'#a9b5ff','end',500)+text(690,y+42,r.wr.toFixed(1)+'%',20,'#edf0f7','end')+text(855,y+42,r.tanks,20,'#edf0f7','end')+text(1050,y+42,r.air,20,'#edf0f7','end');
     if(i<selected.length-1)svg+=`<path d="M 30 ${y+70} H 1070" stroke="#303540"/>`;
   });
-  if(!selected.length)svg+=text(38,218,'Пока нет статистики.',18,'#a0a8b8');
   return svg+'</svg>';
 }
 export function renderLeaderboard(rows,squad,page=1,season){

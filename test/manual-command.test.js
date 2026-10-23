@@ -21,6 +21,7 @@ test('stat group is a valid slash-command group with Discord user selection',()=
    option.setName(sub.name).setDescription(sub.description);
    for(const field of sub.options??[]){
     if(field.type===ApplicationCommandOptionType.User)option.addUserOption(o=>o.setName(field.name).setDescription(field.description).setRequired(field.required));
+    else if(field.type===ApplicationCommandOptionType.Boolean)option.addBooleanOption(o=>o.setName(field.name).setDescription(field.description));
     else option.addStringOption(o=>o.setName(field.name).setDescription(field.description).setMinLength(field.min_length).setMaxLength(field.max_length));
    }
    return option;

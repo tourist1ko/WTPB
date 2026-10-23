@@ -72,7 +72,7 @@ test('concurrent commands share a single update and binding changes pause it saf
 });
 test('season date is shown on each page and buttons from a previous season expire',async()=>{
  const s=store();const payload=rankPayload(s.seasonRows(guild,season),squadron,uid,1,season);
- assert.match(leaderboardSVG(s.seasonRows(guild,season),squadron,1,season),/Сезон 01\.09\.2026 - 31\.10\.2026/);
+ assert.match(leaderboardSVG(s.seasonRows(guild,season),squadron,1,season),/01\.09\.2026 - 31\.10\.2026/);
  let message;const i={isButton:()=>true,customId:payload.components[0].toJSON().components[0].custom_id,guildId:guild,user:{id:uid},deferUpdate:async()=>{},followUp:async p=>message=p};
  await handleRankPage(i,s,guild,{currentSeason:async()=>next});assert.match(message.content,/сезон/);s.db.close();
 });
@@ -90,4 +90,48 @@ test('automatic collection continues updating the current season after the full 
  const w=worker(s,source),live=new ArchiveBattles({store:s,guildId:guild,source,now:()=>Date.parse('2026-10-23T12:00:00Z'),pause:async()=>{},log:()=>{},onBattle:b=>w.apply(b)});
  live.stopped=false;await live.tick();assert.equal(s.rows(guild)[0].wins,1);assert.equal(s.seasonRows(guild,season)[0].wins,1);assert.equal(s.pendingCount(guild),0);
  live.stop();w.stop();s.db.close();
+});
+test('completed job keeps checkpoints, incremental update visits only the new head and never reprocesses cached reports',async()=>{
+ const s=store(),rows=Array.from({length:61},(_,i)=>row(i+1));let skips=[],downloads=0;
+ const source={list:async(_tag,skip)=>{skips.push(skip);return {total:rows.length,items:rows.slice(skip,skip+20)};},battle:async value=>{downloads++;return report(value);}};
+ let w=worker(s,source);await w.start();await w.promise;assert.deepEqual(skips,[0,20,40,60]);assert.equal(downloads,61);
+ // Simulate loading a completed pre-1.5.2 job without the new mode field.
+ const saved=w.saved(season);delete saved.mode;s.db.prepare('UPDATE season_jobs SET payload=?').run(JSON.stringify(saved));w.stop();w=worker(s,source);
+ skips=[];await w.start();await w.promise;assert.deepEqual(skips,[0]);assert.equal(downloads,61);assert.equal(w.snapshot().done,61);assert.equal(w.snapshot().mode,'incremental');
+ rows.unshift(row(900,'2026-10-23T11:00:00Z'));skips=[];const progress=[];w.subscribe(p=>progress.push(p));
+ await w.start();await w.promise;assert.deepEqual(skips,[0,20]);assert.equal(downloads,62);assert.equal(s.seasonRows(guild,season)[0].wins,62);
+ assert.ok(progress.every(p=>p.done>=61));assert.equal(w.snapshot().total,62);w.stop();s.db.close();
+});
+test('late Discord participant receives cached season results on addplayer with no source calls or collector restart',async()=>{
+ const s=store();let requests=0;
+ const source={list:async()=>{requests++;return {total:1,items:[row(1)]};},battle:async value=>{requests++;return report(value);}};
+ const w=worker(s,source);await w.start();await w.promise;assert.equal(requests,2);
+ source.list=source.battle=async()=>{throw Error('Unexpected source request');};let ticks=0,message;
+ const id='223456789012345678',user={id,username:'DiscordName',bot:false};
+ const i={isChatInputCommand:()=>true,guildId:guild,commandName:'pb',memberPermissions:new PermissionsBitField([PermissionFlagsBits.Administrator]),options:{getSubcommand:()=> 'addplayer',getSubcommandGroup:()=> 'stat',getUser:()=>user,getString:()=> 'LatePlayer'},guild:{members:{fetch:async()=>({nickname:'Другой ник',user})}},deferReply:async()=>{},editReply:async p=>message=p};
+ await handleRank(i,s,guild,undefined,undefined,{tick:()=>ticks++},w);
+ assert.match(message.content,/Учтено боёв: 1/);assert.equal(ticks,0);assert.equal(requests,2);
+ assert.equal(s.seasonRows(guild,season).find(p=>p.uid===id).wins,1);
+ await handleRank(i,s,guild,undefined,undefined,{tick:()=>ticks++},w);
+ assert.match(message.content,/Уже добавлен/);assert.equal(s.seasonRows(guild,season).find(p=>p.uid===id).wins,1);w.stop();s.db.close();
+});
+test('explicit full search discovers older archive additions while retaining existing results',async()=>{
+ const s=store(),rows=Array.from({length:41},(_,i)=>row(i+1));let downloads=0,skips=[];
+ const source={list:async(_tag,skip)=>{skips.push(skip);return {total:rows.length,items:rows.slice(skip,skip+20)};},battle:async value=>{downloads++;return report(value);}};
+ const w=worker(s,source);await w.start();await w.promise;
+ rows.push(row(901,'2026-09-01T12:00:00Z'));skips=[];
+ await w.start();await w.promise;assert.deepEqual(skips,[0]);assert.equal(downloads,41);
+ skips=[];await w.start({full:true});await w.promise;assert.deepEqual(skips,[0,20,40]);assert.equal(downloads,42);assert.equal(s.seasonRows(guild,season)[0].wins,42);w.stop();s.db.close();
+});
+test('rows shifted between pages during incremental discovery do not become an early stop boundary',async()=>{
+ const s=store(),rows=Array.from({length:45},(_,i)=>row(i+1));let downloads=0,shift=false,skips=[];
+ const source={list:async(_tag,skip)=>{
+  skips.push(skip);
+  if(shift&&skip===20){rows.unshift(...Array.from({length:20},(_,i)=>row(1000+i)));shift=false;}
+  return {total:rows.length,items:rows.slice(skip,skip+20)};
+ },battle:async value=>{downloads++;return report(value);}};
+ const w=worker(s,source);await w.start();await w.promise;
+ rows.unshift(...Array.from({length:25},(_,i)=>row(900+i)));shift=true;skips=[];
+ await w.start();await w.promise;assert.deepEqual(skips,[0,20,40,60]);assert.equal(downloads,70);
+ await w.start();await w.promise;assert.equal(downloads,90);assert.equal(s.seasonRows(guild,season)[0].wins,90);w.stop();s.db.close();
 });

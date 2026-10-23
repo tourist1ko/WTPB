@@ -53,11 +53,11 @@ export class RatingStore {
     const label=typeof nickname==='string'?nickname.trim():'';
     if(!label||label.length>100||/[\u0000-\u001f\u007f]/.test(label))throw Error('Укажи игровой ник до 100 символов.');
     const nick=label.toLowerCase(),players=this.players(guild),current=players.find(p=>p.uid===uid);
-    if(current){if(current.nick===nick)return {added:false,player:current};throw Error('Участник уже добавлен с ником '+current.label+'. Сначала выполни /pb stat removeplayer.');}
-    if(players.some(p=>p.nick===nick))throw Error('Игровой ник '+label+' уже привязан к другому участнику.');
+    if(current&&current.nick!==nick)throw Error('Участник уже добавлен с ником '+current.label+'. Сначала выполни /pb stat removeplayer.');
+    if(players.some(p=>p.nick===nick&&p.uid!==uid))throw Error('Игровой ник '+label+' уже привязан к другому участнику.');
     this.db.exec('BEGIN IMMEDIATE');
     try{
-      this.db.prepare('INSERT INTO tracked_players VALUES(?,?,?,?,?)').run(guild,squad,uid,nick,label);
+      if(!current)this.db.prepare('INSERT INTO tracked_players VALUES(?,?,?,?,?)').run(guild,squad,uid,nick,label);
       let backfilled=0;
       for(const report of this.db.prepare('SELECT payload FROM battle_reports WHERE guild=? AND squadron=?').all(guild,squad)){
         const battle=JSON.parse(report.payload),row=battle.players.find(p=>p.nickname.toLowerCase()===nick);
@@ -67,7 +67,7 @@ export class RatingStore {
         const battle=JSON.parse(report.payload),row=battle.players.find(p=>p.nickname.toLowerCase()===nick);
         if(row)this.applySeasonPlayer(guild,battle,report.season,{uid,nick},row);
       }
-      this.db.exec('COMMIT');return {added:true,player:{uid,nick,label},backfilled};
+      this.db.exec('COMMIT');return {added:!current,player:current??{uid,nick,label},backfilled};
     }catch(error){this.db.exec('ROLLBACK');throw error;}
   }
   removePlayer(guild,uid){return this.db.prepare('DELETE FROM tracked_players WHERE guild=? AND squadron=? AND uid=?').run(guild,this.squad(guild)??'',uid).changes>0;}

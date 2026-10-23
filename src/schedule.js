@@ -144,4 +144,14 @@ export class ScheduleService {
     const schedule=this.schedules.find(s=>currentRow(s,this.now()));
     return schedule?{start:schedule.start,end:schedule.end}:null;
   }
+  async getBRInfo(){
+    await this.getBR();
+    const now=this.now();
+    for(const schedule of this.schedules){
+      const current=currentRow(schedule,now);if(!current)continue;
+      const next=schedule.rows.find(row=>row.start>current.end&&row.br!==current.br);
+      return {current:current.br.toFixed(1),next:next?{br:next.br.toFixed(1),start:next.start}:null};
+    }
+    return null;
+  }
 }

@@ -20,7 +20,9 @@ test('leaderboard draws Cyrillic headings and values with all system fonts disab
  assert.ok(brightPixels(rendered,30,120,1060,170)>500,'column labels are visible');
  assert.ok(brightPixels(rendered,30,190,1060,240)>500,'player nickname and numeric stats are visible');
 });
-test('empty leaderboard still draws its status without relying on host fonts',()=>{
+test('empty leaderboard draws headings without an empty-state caption',()=>{
  const rendered=renderLeaderboard([],'Полк');
- assert.ok(brightPixels(rendered,30,195,500,230)>300);
+ assert.ok(brightPixels(rendered,30,55,500,100)>500);
+ assert.ok(brightPixels(rendered,30,120,1060,170)>500);
+ assert.equal(brightPixels(rendered,30,195,500,230),0);
 });

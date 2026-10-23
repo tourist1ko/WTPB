@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseSchedule, validateSchedule, currentRow, ScheduleService, SOURCES} from '../src/schedule.js';
-import {command, handleInteraction} from '../src/command.js';
+import {command, handleInteraction,formatBR} from '../src/command.js';
 
 const seed = JSON.parse(readFileSync(new URL('../data/schedule.json', import.meta.url), 'utf8'));
 const shortDate = iso => `${iso.slice(8)}.${iso.slice(5,7)}`;
@@ -76,14 +76,22 @@ test('Unexpected response and expired live season never fabricate BR', async () 
   assert.equal(await service.getBR(),null);
 });
 
-test('The only command is /pb br and its response contains only current BR', async () => {
+test('/pb br shows current BR and the next change date in Kazakh', async () => {
   assert.equal(command.name,'pb');
   assert.deepEqual(command.options.map(o=>o.name),['br']);
   const messages=[];
   const interaction={isChatInputCommand:()=>true,commandName:'pb',guildId:'123',options:{getSubcommand:()=> 'br'},deferReply:async()=>messages.push('deferred'),editReply:async text=>messages.push(text)};
-  await handleInteraction(interaction,{getBR:async()=> '6.0'},'123');
-  assert.deepEqual(messages,['deferred','БР 6.0']);
+  await handleInteraction(interaction,{getBRInfo:async()=>({current:'6.0',next:{br:'5.0',start:'2026-10-27'}})},'123');
+  assert.deepEqual(messages,['deferred','Қәзіргі БР - 6.0\nКелесі БР - 5.0 (27.10.2026)']);
   messages.length=0;
-  await handleInteraction({...interaction,guildId:'456'},{getBR:async()=>{throw Error('wrong server');}},'123');
+  await handleInteraction({...interaction,guildId:'456'},{getBRInfo:async()=>{throw Error('wrong server');}},'123');
   assert.deepEqual(messages,[]);
+});
+test('next BR changes at the Moscow boundary and last bracket never invents the next season',async()=>{
+  const service=new ScheduleService({now:()=>at('2026-10-26T20:59:59Z'),warn:()=>{},fetchImpl:async()=>{throw Error('offline');}});
+  assert.deepEqual(await service.getBRInfo(),{current:'6.0',next:{br:'5.0',start:'2026-10-27'}});
+  service.now=()=>at('2026-10-26T21:00:00Z');assert.deepEqual(await service.getBRInfo(),{current:'5.0',next:null});
+  assert.equal(formatBR(await service.getBRInfo()),'Қәзіргі БР - 5.0\nКелесі БР - жарияланбаған');
+  service.now=()=>at('2026-11-01T12:00:00Z');assert.equal(await service.getBRInfo(),null);
+  assert.equal(formatBR(null),'Қәзіргі БР - белгісіз\nКелесі БР - белгісіз');
 });

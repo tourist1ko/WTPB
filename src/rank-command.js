@@ -13,7 +13,7 @@ export const statOption={type:2,name:'stat',description:'Участники ст
  {type:1,name:'addplayer',description:'Добавить участника в статистику',options:[playerOption,{type:3,name:'wtnick',description:'Игровой ник, если отличается от ника на сервере',max_length:100,min_length:1}]},
  {type:1,name:'removeplayer',description:'Убрать участника из статистики, сохранив историю',options:[playerOption]},
  {type:1,name:'list',description:'Показать добавленных участников'},
- {type:1,name:'update',description:'Загрузить статистику за весь текущий сезон'}
+ {type:1,name:'update',description:'Дополнить статистику текущего сезона',options:[{type:5,name:'full',description:'Повторить полный поиск боёв сезона'}]}
 ]};
 export async function handleRank(i,store,guildId,lookup=lookupSquadron,suggestions,live,seasons){
  if(!i.isChatInputCommand() || i.guildId!==guildId)return false;
@@ -41,7 +41,7 @@ export async function handleRank(i,store,guildId,lookup=lookupSquadron,suggestio
      if(terminal){unsubscribe?.();clearTimeout(timer);}
     };
     unsubscribe=seasons.subscribe(show);timer=setTimeout(()=>unsubscribe(),14*60000);timer.unref();
-    try{await show(await seasons.start());}catch(error){unsubscribe();clearTimeout(timer);throw error;}
+    try{await show(await seasons.start({full:i.options.getBoolean?.('full')??false}));}catch(error){unsubscribe();clearTimeout(timer);throw error;}
    }else if(sub==='list'){
     const players=store.players(i.guildId);
     if(!players.length){await i.editReply('Участников нет. Добавь через /pb stat addplayer.');return true;}
@@ -61,8 +61,9 @@ export async function handleRank(i,store,guildId,lookup=lookupSquadron,suggestio
     const explicit=i.options.getString('wtnick');
     const nick=explicit??wtNick(member.nickname)??member.nickname??user.username;
     const result=store.addPlayer(i.guildId,user.id,nick);
-    await i.editReply({content:`${result.added?'Добавлен':'Уже добавлен'}: ${result.player.label} · <@${user.id}>`,allowedMentions:{parse:[]}});
-    void live?.tick();
+    const season=seasons?await seasons.currentSeason().catch(()=>null):null;
+    const stats=season?store.seasonRows(i.guildId,season).find(p=>p.uid===user.id):null;
+    await i.editReply({content:`${result.added?'Добавлен':'Уже добавлен'}: ${result.player.label} · <@${user.id}>`+(stats?`\nУчтено боёв: ${stats.wins+stats.losses}.`:''),allowedMentions:{parse:[]}});
    }
    return true;
   }
