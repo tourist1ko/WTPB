@@ -4,6 +4,12 @@
   "squadron": "EXAMPLE",
   "result": "win",
   "players": [
-    {"nickname": "tourist__", "tankKills": 2, "airKills": 1, "deaths": 1}
-  ]
+    {
+      "nickname": "tourist__",
+      "tankKills": 2,
+      "airKills": 1,
+      "deaths": 1
+    }
+  ],
+  "playedAt": "2026-10-20T12:00:00Z"
 }

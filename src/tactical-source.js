@@ -2,7 +2,7 @@ import { validateBattle } from './rating.js';
 import { normalizeTag } from './wtapi-codec.js';
 
 export const ARCHIVE='https://www.antoniocnz.com';
-const HEADERS={'User-Agent':'PB-Rank/1.3 (Discord squadron statistics)','Accept':'application/json,text/html'};
+const HEADERS={'User-Agent':'PB-Rank/1.5 (Discord squadron statistics)','Accept':'application/json,text/html'};
 export class SourceError extends Error {
  constructor(message,retryMs=60000){super(message);this.retryMs=retryMs;}
 }
@@ -44,7 +44,7 @@ export function archiveBattle(row,scene,name,tag){
  if(scene.players.length!==row.playerCount)throw Error('Архив: итоговый состав неполный.');
  const players=scene.players.filter(p=>p.team===team);
  if(players.some(p=>normalizeTag(p.clanTag)!==normalizeTag(tag)))throw Error('Архив: состав не совпадает с полком.');
- const battle=validateBattle({id:row.sessionId.toLowerCase(),mode:'squadron_realistic',squadron:name,result:match.winnerTeam===team?'win':'loss',players:players.map(p=>({nickname:p.name,tankKills:p.groundKills,airKills:p.kills,deaths:p.deaths}))});
+ const battle=validateBattle({id:row.sessionId.toLowerCase(),mode:'squadron_realistic',squadron:name,playedAt:row.playedAtUtc,result:match.winnerTeam===team?'win':'loss',players:players.map(p=>({nickname:p.name,tankKills:p.groundKills,airKills:p.kills,deaths:p.deaths}))});
  const total=row[`team${team}Kills`];
  if(!Number.isSafeInteger(total)||battle.players.reduce((n,p)=>n+p.tankKills+p.airKills,0)!==total)throw Error('Архив: сумма убийств не совпадает с итогом команды.');
  return battle;

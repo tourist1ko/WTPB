@@ -11,7 +11,7 @@ test('Manage Server cannot register/unregister, administrator can',async()=>{
  const b=interaction('unregister',[PermissionFlagsBits.Administrator]);await handleRank(b,store,'g');assert.equal(store.squad('g'),undefined);assert.match(b.responses[0],/сохранена/);store.db.close();
 });
 test('unregister preserves stats and duplicate ledger, other guild stays bound',()=>{
- const store=new RatingStore(':memory:');store.register('g','QZ');store.register('other','Other');
+ const store=new RatingStore(':memory:');store.register('g','QZ');store.register('other','Other');store.addPlayer('g','1','Alpha');
  const members=new Map([['1',{id:'1',nickname:'Alpha (A)',user:{bot:false}}]]);
  const battle={id:'1',mode:'squadron_realistic',squadron:'QZ',result:'win',players:[{nickname:'Alpha',tankKills:2,airKills:1,deaths:1}]};store.ingest('g',battle,members);store.unregister('g');assert.equal(store.rows('g',members).length,0);assert.equal(store.squad('other'),'Other');store.register('g','QZ');assert.equal(store.rows('g',members)[0].tanks,2);assert.equal(store.ingest('g',battle,members).duplicate,true);store.db.close();
 });

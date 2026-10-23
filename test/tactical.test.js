@@ -42,10 +42,10 @@ test('public source uses observed URLs without auth, handles ETag and throttling
  await assert.rejects(blocked.list('tag'),e=>e instanceof SourceError&&e.retryMs===600000);
  const huge=new TacticalSource({fetchImpl:async()=>new Response('x',{headers:{'Content-Length':'99999999'}})});await assert.rejects(huge.list('tag'),/слишком большой/);
 });
-test('archive polling imports real fixture only for formatted Discord nicks and survives source duplicates',async()=>{
- const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');let now=Date.parse(known.row.playedAtUtc)+3600000,details=0;
+test('archive polling uses only manually added players and never requests the Discord roster',async()=>{
+ const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');store.addPlayer('g','1','tourist__');let now=Date.parse(known.row.playedAtUtc)+3600000,details=0;
  const source={list:async()=>({total:1,items:[known.row]}),battle:async(...args)=>{details++;return archiveBattle(args[0],known.scene,args[1],args[2]);}};
- const client={guilds:{cache:new Map([['g',{members:{fetch:async()=>members}}]])}};
+ const client={guilds:{cache:new Map([['g',{members:{fetch:async()=>{throw Error("Full roster must not be requested");}}}]])}};
  const live=new ArchiveBattles({store,client,guildId:'g',source,now:()=>now,pause:async()=>{},log:()=>{}});
  try{
   live.stopped=false;await live.tick();let rows=store.rows('g',members);assert.equal(rows.length,1);assert.equal(rows[0].losses,1);assert.equal(rows[0].deaths,1);assert.equal(store.pendingCount('g'),0);
@@ -54,12 +54,23 @@ test('archive polling imports real fixture only for formatted Discord nicks and 
  }finally{live.stop();store.db.close();}
 });
 test('polling paginates initial 24 h, ignores arcade and respects request backoff',async()=>{
- const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');let now=Date.parse(known.row.playedAtUtc)+3600000,calls=[],fail=false;
+ const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');store.addPlayer('g','1','tourist__');let now=Date.parse(known.row.playedAtUtc)+3600000,calls=[],fail=false;
  const old={...known.row,playedAtUtc:new Date(now-2*86400000).toISOString()};
  const source={list:async(tag,skip)=>{calls.push(skip);if(fail)throw new SourceError('limited',300000);return skip===0?{total:21,items:[{...known.row,difficulty:'arcade'}]}:{total:21,items:[old]};},battle:async()=>{throw Error('should not request details');}};
  const live=new ArchiveBattles({store,client:{},guildId:'g',source,now:()=>now,pause:async()=>{},log:()=>{}});
  try{
   live.stopped=false;await live.tick();assert.deepEqual(calls,[0,20]);fail=true;now+=60001;await live.tick();const count=calls.length;
   now+=60001;await live.tick();assert.equal(calls.length,count);assert.match(live.status(),/limited/);
+ }finally{live.stop();store.db.close();}
+});
+test('all eight manual registrations count, empty roster pauses discovery until registration',async()=>{
+ const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');
+ const battle=archiveBattle(known.row,known.scene,'Beyond Alive','┾105HP┿');let queries=0;
+ const source={list:async()=>{queries++;return {total:1,items:[known.row]};},battle:async()=>battle};
+ const live=new ArchiveBattles({store,client:{},guildId:'g',source,now:()=>Date.parse(known.row.playedAtUtc)+3600000,pause:async()=>{},log:()=>{}});
+ try{
+  live.stopped=false;await live.tick();assert.equal(queries,0);assert.match(live.status(),/addplayer/);
+  battle.players.forEach((p,i)=>store.addPlayer('g',String(i+1),p.nickname));await live.tick();
+  assert.equal(store.rows('g').length,8);assert.equal(store.rows('g').reduce((n,p)=>n+p.losses,0),8);assert.equal(store.pendingCount('g'),0);
  }finally{live.stop();store.db.close();}
 });

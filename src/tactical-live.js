@@ -1,11 +1,10 @@
 import { TacticalSource, archiveTeam } from './tactical-source.js';
 import { lookupSquadron } from './squadron.js';
-import { getGuildMembers } from './members.js';
 
 const DAY=86400000;
 export class ArchiveBattles {
- constructor({store,client,guildId,source=new TacticalSource(),lookup=lookupSquadron,log=console.log,now=Date.now,pause=ms=>new Promise(r=>setTimeout(r,ms)),membersForGuild=getGuildMembers}){
-  Object.assign(this,{store,client,guildId,source,lookup,log,now,pause,membersForGuild});
+ constructor({store,client,guildId,source=new TacticalSource(),lookup=lookupSquadron,log=console.log,now=Date.now,pause=ms=>new Promise(r=>setTimeout(r,ms)),onBattle}){
+  Object.assign(this,{store,client,guildId,source,lookup,log,now,pause,onBattle});
   this.stopped=true;this.state='Ожидание проверки архива ПБ.';this.nextPoll=0;this.nextRescan=0;
   this.retries=new Map();
  }
@@ -15,19 +14,18 @@ export class ArchiveBattles {
  same(binding){const b=this.store.binding(this.guildId);return !this.stopped&&b?.squadron===binding.squadron&&b?.tag===binding.tag;}
  async drain(binding){
   const pending=this.store.pending(this.guildId,binding.squadron);if(!pending.length)return;
-  const guild=this.client.guilds.cache.get(this.guildId);if(!guild)throw Error('Discord-сервер недоступен. Полученные бои сохранены в очереди.');
-  const members=await this.membersForGuild(guild);
   for(const battle of pending){
    if(!this.same(binding))return;
-   const result=this.store.ingest(this.guildId,battle,members);this.store.finishPending(this.guildId,battle.squadron,battle.id);
+   const result=this.store.ingest(this.guildId,battle);await this.onBattle?.(battle);this.store.finishPending(this.guildId,battle.squadron,battle.id);
    if(!result.duplicate)this.log(`ПБ ${battle.id}: учтено игроков ${result.count}.`);
   }
  }
  async tick(){
-  if(this.stopped||this.running)return;this.running=true;
+  if(this.stopped||this.running||this.seasonUpdating)return;this.running=true;
   try{
    let binding=this.store.binding(this.guildId);
    if(!binding){this.state='Полк не привязан.';return;}
+   if(!this.store.players(this.guildId).length){this.state='Добавь участников через /pb stat addplayer.';return;}
    if(!binding.tag){const profile=await this.lookup(binding.squadron);this.store.setTag(this.guildId,binding.squadron,profile.tag);binding=this.store.binding(this.guildId);}
    if(!binding?.tag)throw Error('Не удалось определить тег полка.');
    if(!this.same(binding))return;

@@ -139,4 +139,9 @@ export class ScheduleService {
     }
     return null;
   }
+  async getSeason(){
+    await this.getBR();
+    const schedule=this.schedules.find(s=>currentRow(s,this.now()));
+    return schedule?{start:schedule.start,end:schedule.end}:null;
+  }
 }

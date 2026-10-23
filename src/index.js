@@ -4,13 +4,13 @@ import { command, handleInteraction } from './command.js';
 import { RatingStore } from './rating.js';
 import { LiveBattles } from './wtapi-live.js';
 import { ArchiveBattles } from './tactical-live.js';
-import { memberRoster } from './members.js';
+import { SeasonUpdate } from './season-update.js';
 import { handleRankPage } from './rank-pages.js';
 import { SquadronSuggestions, handleSquadronAutocomplete, suggestionsFile } from './squadron-autocomplete.js';
 const suggestions=new SquadronSuggestions({file:suggestionsFile()});
-import { rankCommand, registerOption, unregisterOption, importOption, statusOption, handleRank } from './rank-command.js';
+import { rankCommand, registerOption, unregisterOption, importOption, statusOption, statOption, handleRank } from './rank-command.js';
 const store=new RatingStore((process.env.DATA_DIR || './storage')+'/rank.sqlite');
-command.options.push(registerOption,unregisterOption,importOption,statusOption);
+command.options.push(registerOption,unregisterOption,importOption,statusOption,statOption);
 
 const token = process.env.DISCORD_TOKEN?.trim();
 const guildId = process.env.GUILD_ID?.trim();
@@ -22,14 +22,16 @@ function logError(context, error) {
   console.error(`${context}: ${String(error.message ?? error).replaceAll(token, '[REDACTED]')}`);
 }
 const service = new ScheduleService();
-const client = new Client({intents:[GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers], allowedMentions:{parse:[]}});
+const client = new Client({intents:[GatewayIntentBits.Guilds], allowedMentions:{parse:[]}});
 const statsSource=process.env.STATS_SOURCE?.trim()||'tactical';
 if(!['tactical','wtapi'].includes(statsSource)){console.error('STATS_SOURCE must be tactical or wtapi.');process.exit(1);}
 const live=statsSource==='wtapi'?new LiveBattles({key:process.env.WTAPI_KEY?.trim(),store,client,guildId}):new ArchiveBattles({store,client,guildId});
+const seasons=new SeasonUpdate({store,guildId,service,live});
+live.onBattle=battle=>seasons.apply(battle);
 const rest = new REST({version:'10'}).setToken(token);
 
 client.on(Events.InteractionCreate, interaction => {
-  (async()=>{if(await handleSquadronAutocomplete(interaction,store,guildId,suggestions))return;if(await handleRankPage(interaction,store,guildId))return;if(!await handleRank(interaction,store,guildId,undefined,suggestions,live))await handleInteraction(interaction, service, guildId);})().catch(async error => {
+  (async()=>{if(await handleSquadronAutocomplete(interaction,store,guildId,suggestions))return;if(await handleRankPage(interaction,store,guildId,seasons))return;if(!await handleRank(interaction,store,guildId,undefined,suggestions,live,seasons))await handleInteraction(interaction, service, guildId);})().catch(async error => {
     logError('Command failed', error);
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply('Не удалось получить БР. Попробуй ещё раз.').catch(() => {});
@@ -37,14 +39,6 @@ client.on(Events.InteractionCreate, interaction => {
   });
 });
 client.on(Events.Error, error => logError('Discord', error));
-client.on(Events.GuildMemberAdd,member=>memberRoster.change(member));
-client.on(Events.GuildMemberUpdate,(_old,member)=>memberRoster.change(member));
-client.on(Events.GuildMemberRemove,member=>memberRoster.change(member,true));
-client.on(Events.GuildUnavailable,guild=>memberRoster.invalidate(guild));
-for(const event of [Events.ShardDisconnect,Events.ShardResume,Events.ShardReady])client.on(event,(first,second)=>{
-  const shard=event===Events.ShardDisconnect?second:first;
-  for(const guild of client.guilds.cache.values())if(guild.shardId===shard)memberRoster.invalidate(guild);
-});
 
 let timer;
 client.once(Events.ClientReady, async readyClient => {
@@ -70,6 +64,7 @@ for (const signal of ['SIGTERM','SIGINT']) {
   process.once(signal, () => {
     clearInterval(timer);
     live.stop();
+    seasons.stop();
     client.destroy();
     process.exit(0);
   });

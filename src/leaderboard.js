@@ -3,20 +3,21 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const fontFiles=['DejaVuSans.ttf','DejaVuSans-Bold.ttf'].map(name=>fileURLToPath(new URL('../assets/fonts/'+name,import.meta.url)));
 const renderOptions={font:{loadSystemFonts:false,fontFiles,defaultFontFamily:'DejaVu Sans',sansSerifFamily:'DejaVu Sans'}};
-export const PAGE_SIZE = 15;
+export const PAGE_SIZE = 8;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 export function pageState(total, requested=1) {
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
   const page=Math.min(pages,Math.max(1,Number.isSafeInteger(requested)?requested:1));
   return {page,pages,start:(page-1)*PAGE_SIZE};
 }
-export function leaderboardSVG(rows,squad,page=1) {
+export function leaderboardSVG(rows,squad,page=1,season) {
   const {start}=pageState(rows.length,page);
   const selected=rows.slice(start,start+PAGE_SIZE);
   const height=205+Math.max(1,selected.length)*70;
   const text=(x,y,s,size=19,color='#edf0f7',anchor='start',weight=400)=>`<text x="${x}" y="${y}" font-size="${size}" fill="${color}" text-anchor="${anchor}" font-weight="${weight}" font-family="DejaVu Sans">${esc(s)}</text>`;
   let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="${height}"><rect width="1100" height="${height}" rx="20" fill="#111318"/>`;
   svg+=text(38,42,`${squad.slice(0,45)} · Полковые бои`,15,'#a0a8b8');
+  if(season)svg+=text(1050,42,'Сезон '+season.label,13,'#a0a8b8','end');
   svg+=text(38,88,'Лучшие в полку',30);
   svg+=text(50,151,'№',14,'#a0a8b8')+text(105,151,'Игрок',14,'#a0a8b8')+text(530,151,'К/Д',14,'#a0a8b8','end')+text(690,151,'WinRate',14,'#a0a8b8','end');
   svg+=text(855,138,'Танки',14,'#a0a8b8','end')+text(855,158,'(Убийство)',14,'#a0a8b8','end');
@@ -34,8 +35,8 @@ export function leaderboardSVG(rows,squad,page=1) {
   if(!selected.length)svg+=text(38,218,'Пока нет статистики.',18,'#a0a8b8');
   return svg+'</svg>';
 }
-export function renderLeaderboard(rows,squad,page=1){
+export function renderLeaderboard(rows,squad,page=1,season){
   if(fontFiles.some(path=>!existsSync(path)))throw Error('Не найдены встроенные шрифты. Обнови папку assets/fonts вместе с ботом.');
-  return new Resvg(leaderboardSVG(rows,squad,page),renderOptions).render();
+  return new Resvg(leaderboardSVG(rows,squad,page,season),renderOptions).render();
 }
-export function leaderboard(rows,squad,page=1){return renderLeaderboard(rows,squad,page).asPng();}
+export function leaderboard(rows,squad,page=1,season){return renderLeaderboard(rows,squad,page,season).asPng();}

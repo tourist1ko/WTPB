@@ -45,7 +45,7 @@ test('pending battle survives restart, legacy DB migration preserves binding and
   const old=new DatabaseSync(path);old.exec("CREATE TABLE guilds(guild TEXT PRIMARY KEY,squadron TEXT NOT NULL); INSERT INTO guilds VALUES('g','Beyond Alive')");old.close();
   let store=new RatingStore(path);assert.equal(store.squad('g'),'Beyond Alive');store.setTag('g','Beyond Alive','┾105HP┿');
   const b=battleForSquad(fixture(),'Beyond Alive','┾105HP┿');store.enqueue('g',b);store.enqueue('g',b);store.db.close();
-  store=new RatingStore(path);assert.equal(store.pendingCount('g'),1);assert.equal(store.binding('g').tag,'┾105HP┿');
+  store=new RatingStore(path);assert.equal(store.pendingCount('g'),1);assert.equal(store.binding('g').tag,'┾105HP┿');store.addPlayer('g','1','tourist__');
   assert.equal(store.ingest('g',store.pending('g','Beyond Alive')[0],members).count,1);
   // Simulate restart after the stats transaction but before queue acknowledgement.
   store.db.close();store=new RatingStore(path);assert.equal(store.ingest('g',store.pending('g','Beyond Alive')[0],members).duplicate,true);
@@ -54,16 +54,16 @@ test('pending battle survives restart, legacy DB migration preserves binding and
   store.db.close();
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
-test('stream sends auth in header, queues before Discord fetch and recovers on retry',async()=>{
+test('stream sends auth in header, retains queue until manual registration and ignores duplicate frames',async()=>{
  const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');
- let socket,fetches=0;
+ let socket;
  class Socket extends EventEmitter {constructor(url,options){super();socket=this;assert.equal(url,'wss://wtapi.dev/v1/replays/ws/sqb');assert.equal(options.headers.Authorization,'Bearer test-secret');}terminate(){this.emit('close',1000);}}
- const client={guilds:{cache:new Map([['g',{members:{fetch:async()=>{fetches++;if(fetches===1)throw Error('Discord temporarily unavailable');return members;}}}]])}};
- const logs=[];const live=new LiveBattles({key:'test-secret',store,client,guildId:'g',Socket,log:s=>logs.push(s),membersForGuild:g=>g.members.fetch()});
+ const client={guilds:{cache:new Map()}};
+ const logs=[];const live=new LiveBattles({key:'test-secret',store,client,guildId:'g',Socket,log:s=>logs.push(s)});
  try{
   live.start();socket.emit('open');socket.emit('message',pack(fixture()),true);
   await new Promise(resolve=>setImmediate(resolve));assert.equal(store.pendingCount('g'),1);assert.equal(store.rows('g',members).length,0);
-  await live.drain();assert.equal(store.pendingCount('g'),0);assert.equal(store.rows('g',members)[0].kd,3);
+  store.addPlayer('g','1','tourist__');await live.drain();assert.equal(store.pendingCount('g'),0);assert.equal(store.rows('g',members)[0].kd,3);
   socket.emit('message',pack(fixture()),true);await new Promise(resolve=>setImmediate(resolve));assert.equal(store.rows('g',members)[0].losses,1);
   live.report(Error('test-secret'));assert.ok(!logs.join('').includes('test-secret'));
   store.unregister('g');socket.emit('message',pack(fixture()),true);assert.equal(store.pendingCount('g'),0);
