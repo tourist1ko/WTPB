@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } from 'discord.js';
 import { leaderboard, pageState } from './leaderboard.js';
 const squadKey = (squad,season) => createHash('sha256').update(season?squad+'\0'+season.id:squad).digest('hex').slice(0,12);
+const updating=new Set();
 export function rankPayload(rows,squad,owner,requested=1,season){
   const {page,pages}=pageState(rows.length,requested);
   const id=target=>`pbrank:${owner}:${target}:${squadKey(squad,season)}`;
@@ -20,11 +21,33 @@ export async function handleRankPage(i,store,guildId,seasons){
   if(i.user.id!==match[1]){await i.reply({content:'Открой свою таблицу через /rank.',flags:MessageFlags.Ephemeral});return true;}
   const squad=store.squad(i.guildId);
   if(!squad){await i.reply({content:'Привязка полка изменилась. Открой /rank заново.',flags:MessageFlags.Ephemeral});return true;}
-  await i.deferUpdate();
+  // Duplicate clicks while the same message is in flight must not queue edits
+  // or let an older image overwrite a newer one.
+  const messageKey=i.message?.id;
+  if(messageKey&&updating.has(messageKey)){await i.deferUpdate();return true;}
+  if(messageKey)updating.add(messageKey);
+  let deferred;
+  // Normally the image and season are already local. Keep the interaction
+  // alive if a missing season forces a slow external lookup.
+  const timer=setTimeout(()=>{deferred=i.deferUpdate();deferred.catch(()=>{});},1000);
   try{
     const season=await seasons?.currentSeason();
-    if(squadKey(squad,season)!==match[3]){await i.followUp({content:'Привязка полка изменилась или начался новый сезон. Открой /rank заново.',flags:MessageFlags.Ephemeral});return true;}
-    await i.editReply(rankPayload(season?store.seasonRows(i.guildId,season):store.rows(i.guildId),squad,i.user.id,Number(match[2]),season));
-  }catch{await i.followUp({content:'Не удалось обновить таблицу. Попробуй ещё раз.',flags:MessageFlags.Ephemeral});}
+    if(store.squad(i.guildId)!==squad||squadKey(squad,season)!==match[3]){
+      clearTimeout(timer);
+      if(deferred){await deferred;await i.followUp({content:'Привязка полка изменилась или начался новый сезон. Открой /rank заново.',flags:MessageFlags.Ephemeral});}
+      else await i.reply({content:'Привязка полка изменилась или начался новый сезон. Открой /rank заново.',flags:MessageFlags.Ephemeral});
+      return true;
+    }
+    const payload=rankPayload(season?store.seasonRows(i.guildId,season):store.rows(i.guildId),squad,i.user.id,Number(match[2]),season);
+    clearTimeout(timer);
+    if(deferred){await deferred;await i.editReply(payload);}
+    else await i.update(payload);
+  }catch{
+    clearTimeout(timer);
+    const error={content:'Не удалось обновить таблицу. Попробуй ещё раз.',flags:MessageFlags.Ephemeral};
+    if(deferred){await deferred;await i.followUp(error);}
+    else if(i.replied||i.deferred)await i.followUp(error);
+    else await i.reply(error);
+  }finally{clearTimeout(timer);if(messageKey)updating.delete(messageKey);}
   return true;
 }

@@ -11,10 +11,11 @@ const members=new Map([['1',{id:'1',nickname:'tourist__ (Айбар)',user:{bot:
 test('real session supplied by user maps raw air/ground fields and explicit result',()=>{
  const b=archiveBattle(known.row,known.scene,'Beyond Alive','┾105HP┿');
  assert.equal(b.result,'loss');assert.equal(b.id,'4ad212e8001639a5');assert.equal(b.players.length,8);
- assert.deepEqual(b.players.find(p=>p.nickname==='tourist__'),{nickname:'tourist__',tankKills:0,airKills:0,deaths:1});
+ assert.deepEqual(b.players.find(p=>p.nickname==='tourist__'),{nickname:'tourist__',tankKills:0,airKills:0,deaths:1,spawns:1});
  assert.equal(b.players.reduce((n,p)=>n+p.tankKills,0),0);assert.equal(b.players.reduce((n,p)=>n+p.airKills,0),1);assert.equal(b.players.reduce((n,p)=>n+p.deaths,0),8);
  const enemy=archiveBattle(known.row,known.scene,'Enemy','╖TEHb╖');assert.equal(enemy.result,'win');
- assert.deepEqual(enemy.players.find(p=>p.nickname==='blacksmith86'),{nickname:'blacksmith86',tankKills:1,airKills:2,deaths:1});
+ assert.deepEqual(enemy.players.find(p=>p.nickname==='blacksmith86'),{nickname:'blacksmith86',tankKills:1,airKills:2,deaths:1,spawns:1});
+ assert.equal(enemy.players.find(p=>p.deaths===0).spawns,1);
  assert.equal(archiveBattle(win.row,win.scene,'Beyond Alive','┾105HP┿').result,'win');
  assert.equal(archiveBattle(known.row,known.scene,'Wrong','105H'),null);
  assert.throws(()=>archiveBattle({...known.row,team1Kills:10},known.scene,'Beyond Alive','┾105HP┿'),/сумма убийств/);

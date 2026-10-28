@@ -12,9 +12,9 @@ test('pagination covers first, middle and last page and clamps shrinking results
 });
 test('page buttons update the same message with a new image, reject another user and changed squad',async()=>{
  const payload=rankPayload(rows,'QZ',owner,1);const id=payload.components[0].toJSON().components[2].custom_id;
- let fetches=0;let update;let error;
- const i={isButton:()=>true,customId:id,guildId:'g',user:{id:owner},guild:{members:{fetch:async()=>{fetches++;return new Map();}}},deferUpdate:async()=>{},editReply:async p=>update=p,reply:async p=>error=p,followUp:async p=>error=p};
+ let fetches=0;let update;let error;let defers=0;
+ const i={isButton:()=>true,customId:id,guildId:'g',user:{id:owner},guild:{members:{fetch:async()=>{fetches++;return new Map();}}},deferUpdate:async()=>{defers++;},update:async p=>update=p,editReply:async()=>assert.fail('Fast page must use one update request'),reply:async p=>error=p,followUp:async p=>error=p};
  const store={squad:()=> 'QZ',rows:()=>rows};assert.equal(await handleRankPage(i,store,'g'),true);assert.equal(update.components[0].toJSON().components[1].label,'2 / 4');assert.deepEqual(update.attachments,[]);assert.equal(update.content,'');assert.equal(update.files.length,1);
- update=null;i.user.id='223456789012345678';await handleRankPage(i,store,'g');assert.equal(fetches,0);assert.equal(update,null);assert.match(error.content,/свою таблицу/);
+ assert.equal(defers,0);update=null;i.user.id='223456789012345678';await handleRankPage(i,store,'g');assert.equal(fetches,0);assert.equal(update,null);assert.match(error.content,/свою таблицу/);
  i.user.id=owner;await handleRankPage(i,{...store,squad:()=> 'Other'},'g');assert.equal(fetches,0);assert.match(error.content,/изменилась/);
 });

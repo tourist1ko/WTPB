@@ -13,8 +13,8 @@ test('only explicitly added players count, even if a full Discord roster is supp
  const s=store();s.addPlayer('g','1','Alpha');s.addPlayer('g','2','Bravo');
  const discord=new Map([['3',{id:'3',nickname:'NoFormat (Name)',user:{bot:false}}]]);
  assert.equal(s.ingest('g',battle,discord).count,2);assert.equal(s.ingest('g',battle).duplicate,true);
- let r=s.rows('g');assert.equal(r[0].kd,Infinity);assert.equal(r[1].kd,3);
- s.ingest('g',{...battle,id:'b',result:'loss'});r=s.rows('g');assert.equal(r[1].wr,50);assert.equal(r[1].tanks,4);
+ let r=s.rows('g');assert.equal(r[0].nick,'Alpha');assert.equal(r[0].kd,3);assert.equal(r[1].kd,1);
+ s.ingest('g',{...battle,id:'b',result:'loss'});r=s.rows('g');assert.equal(r[0].wr,50);assert.equal(r[0].tanks,4);
  assert.equal(s.rows('g',new Map()).length,2);assert.throws(()=>s.ingest('g',{...battle,squadron:'Other'}));
  const png=leaderboard(r,'Қазақ & <полк>');assert.equal(png.subarray(1,4).toString(),'PNG');s.db.close();
 });
@@ -43,7 +43,7 @@ test('legacy migration keeps stats, requires manual choice and roster survives r
  try{
   const old=new DatabaseSync(file);old.exec("CREATE TABLE guilds(guild TEXT PRIMARY KEY,squadron TEXT NOT NULL);INSERT INTO guilds VALUES('g','QZ');CREATE TABLE stats(guild TEXT,squadron TEXT,uid TEXT,nick TEXT,tanks INTEGER DEFAULT 0,air INTEGER DEFAULT 0,deaths INTEGER DEFAULT 0,wins INTEGER DEFAULT 0,losses INTEGER DEFAULT 0,PRIMARY KEY(guild,squadron,uid,nick));INSERT INTO stats VALUES('g','QZ','1','alpha',8,2,5,3,1)");old.close();
   let s=new RatingStore(file);assert.equal(s.rows('g').length,0);assert.equal(s.db.prepare('SELECT tanks FROM stats').get().tanks,8);
-  s.addPlayer('g','1','Alpha');assert.equal(s.rows('g')[0].kd,2);s.db.close();
+  s.addPlayer('g','1','Alpha');assert.equal(s.rows('g')[0].kd,2.5);s.db.close();
   s=new RatingStore(file);assert.equal(s.players('g').length,1);assert.equal(s.rows('g')[0].wr,75);s.db.close();
  }finally{rmSync(dir,{recursive:true,force:true});}
 });

@@ -50,5 +50,5 @@ export function battleForSquad(replay,name,tag) {
  const team=[...teams][0];
  const players=(replay.players??[]).filter(p=>p.team===team);
  if(players.some(p=>p.tag && p.tag!==String(team) && normalizeTag(p.tag)!==expected))throw Error('WTApi: состав содержит другой полк.');
- return validateBattle({id:replay.id,mode:'squadron_realistic',squadron:name,playedAt:new Date((replay.start_ts||replay.end_ts)*1000).toISOString(),result:team===winner?'win':'loss',players:players.map(p=>({nickname:p.name,tankKills:p.ground_kills,airKills:p.air_kills,deaths:p.deaths}))});
+ return validateBattle({id:replay.id,mode:'squadron_realistic',squadron:name,playedAt:new Date((replay.start_ts||replay.end_ts)*1000).toISOString(),result:team===winner?'win':'loss',players:players.map(p=>({nickname:p.name,tankKills:p.ground_kills,airKills:p.air_kills,deaths:p.deaths,spawns:1}))});
 }
