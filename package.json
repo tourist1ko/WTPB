@@ -1,20 +1,14 @@
 {
-  "name": "pb-rank-bot",
-  "version": "1.7.1",
   "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=24.17.0"
-  },
+  "name": "jasaq-activity",
+  "version": "8.5.0",
   "scripts": {
-    "start": "node --env-file-if-exists=.env src/index.js",
-    "test": "node --test",
-    "check:source": "node src/check-source.js"
+    "build": "esbuild frontend/app.js --bundle --format=esm --platform=browser --target=es2020 --minify --outfile=web/app.bundle.js"
   },
   "dependencies": {
-    "@resvg/resvg-js": "2.6.2",
-    "discord.js": "14.27.0",
-    "protobufjs": "8.8.1",
-    "ws": "8.22.0"
+    "@discord/embedded-app-sdk": "2.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
   }
 }

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111820">
+  <title>JASAQ</title>
+  <link rel="stylesheet" href="/style.css?v=8.4">
+</head>
+<body>
+  <!--
+    SVG sprite. Paths are taken 1:1 from JASAQ_Graphic_Assets/svg/*.svg.
+    Only the hard-coded stroke colour/width were moved to CSS (currentColor + one
+    shared stroke width with vector-effect) so every icon renders with the same line weight.
+  -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-squad" viewBox="0 0 64 64"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><circle vector-effect="non-scaling-stroke" cx="24" cy="19" r="8"/><circle vector-effect="non-scaling-stroke" cx="44" cy="22" r="6"/><path vector-effect="non-scaling-stroke" d="M8 52v-5a16 16 0 0 1 32 0v5M39 39a12 12 0 0 1 17 11v2"/></g></symbol>
+      <symbol id="i-rank" viewBox="0 0 64 64"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path vector-effect="non-scaling-stroke" d="M12 52V34h10v18M27 52V22h10v30M42 52V12h10v40M8 56h48"/></g></symbol>
+      <symbol id="i-map" viewBox="0 0 64 64"><g fill="none" stroke-linejoin="round"><path vector-effect="non-scaling-stroke" d="m7 14 16-7 18 7 16-7v43l-16 7-18-7-16 7zM23 7v43M41 14v43"/><path vector-effect="non-scaling-stroke" d="M32 20a8 8 0 0 0-8 8c0 6 8 15 8 15s8-9 8-15a8 8 0 0 0-8-8z"/><circle vector-effect="non-scaling-stroke" cx="32" cy="28" r="2.5"/></g></symbol>
+      <symbol id="i-settings" viewBox="0 0 64 64"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path vector-effect="non-scaling-stroke" d="M32 23a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/><path vector-effect="non-scaling-stroke" d="m53 37 4 3-5 9-5-2a22 22 0 0 1-5 3l-1 5H23l-1-5a22 22 0 0 1-5-3l-5 2-5-9 4-3a22 22 0 0 1 0-6l-4-3 5-9 5 2a22 22 0 0 1 5-3l1-5h18l1 5a22 22 0 0 1 5 3l5-2 5 9-4 3a22 22 0 0 1 0 6Z"/></g></symbol>
+      <symbol id="i-crosshair" viewBox="0 0 64 64"><g fill="none" stroke-linecap="round"><circle vector-effect="non-scaling-stroke" cx="32" cy="32" r="19"/><circle vector-effect="non-scaling-stroke" cx="32" cy="32" r="5"/><path vector-effect="non-scaling-stroke" d="M32 5v12m0 30v12M5 32h12m30 0h12"/></g></symbol>
+      <symbol id="i-shuffle" viewBox="0 0 64 64"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path vector-effect="non-scaling-stroke" d="M8 17h8c14 0 18 30 32 30h8M48 39l8 8-8 8M8 47h8c6 0 10-6 14-13M43 17h13M48 9l8 8-8 8"/></g></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path vector-effect="non-scaling-stroke" d="m4 12 5 5L20 6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path vector-effect="non-scaling-stroke" d="m9 5 7 7-7 7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <!-- close: built from the same 24-grid / round caps as icon-check & icon-chevron -->
+      <symbol id="i-close" viewBox="0 0 24 24"><path vector-effect="non-scaling-stroke" d="M6 6l12 12M18 6 6 18" fill="none" stroke-linecap="round"/></symbol>
+      <!-- leader mark: same 24-grid, round caps/joins as icon-check / icon-chevron -->
+      <symbol id="i-lead" viewBox="0 0 24 24"><path vector-effect="non-scaling-stroke" d="M4 18h16M5 15 4 7l5 4 3-6 3 6 5-4-1 8z" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <!-- card-map.svg (unchanged) -->
+      <symbol id="g-card-map" viewBox="0 0 320 180"><rect x="1" y="1" width="318" height="178" rx="9" fill="#18232D" stroke="#465663"/><path d="M0 120 70 62l52 24 58-52 65 34 75-24v135H0Z" fill="#263845"/><path d="m0 120 70-58 52 24 58-52 65 34 75-24M25 155l75-56 42 15 63-48 74 28" fill="none" stroke="#607482" stroke-width="2"/><path d="M160 20v140M35 90h250" stroke="#C83B35" stroke-width="1" opacity=".55" stroke-dasharray="5 6"/></symbol>
+      <!-- avatar placeholder: silhouette from card-player.svg -->
+      <symbol id="i-avatar" viewBox="33 37 40 40"><circle cx="53" cy="47" r="8" fill="#AAB4C0"/><path d="M37 75c2-12 30-12 32 0" fill="#AAB4C0"/></symbol>
+      <!-- flip-card-back.svg -->
+      <symbol id="g-card-back" viewBox="0 0 320 180"><rect x="1" y="1" width="318" height="178" rx="9" fill="#202B35" stroke="#C83B35" stroke-width="2"/><path d="M12 12h296v156H12z" fill="none" stroke="#657482" stroke-dasharray="3 5"/><circle cx="160" cy="78" r="29" fill="none" stroke="#C83B35" stroke-width="2"/><path d="M160 58v40m-20-20h40" stroke="#D8DEE5" stroke-width="2"/><path d="M95 135h130" stroke="#657482" stroke-width="3" stroke-linecap="round"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="brand-wrap">
+      <svg class="ic brand-mark"><use href="#i-crosshair"/></svg>
+      <div class="brand">JASAQ</div>
+    </div>
+    <span id="role" class="role"></span>
+  </header>
+
+  <main class="home">
+    <aside class="roster panel">
+      <div class="panel-title"><span>Қатысушылар</span><b id="count">0</b></div>
+      <div id="players" class="players"></div>
+      <div class="reserve">
+        <div id="reserveList" class="reserve-list hidden"></div>
+        <button id="reserveBtn" class="reserve-btn" aria-expanded="false">
+          <span>Резерв</span><b id="reserveCount">0</b>
+          <svg class="ic reserve-chev"><use href="#i-chevron"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <section class="actions">
+      <div class="action-row">
+        <button class="action" data-key="teams" aria-pressed="true">
+          <svg class="ic action-icon"><use href="#i-squad"/></svg>
+          <span class="action-text"><span class="action-title">Жасаққа бөлу</span><span class="action-sub" id="subTeams">2 жасақ</span></span>
+          <span class="switch" aria-hidden="true"><span class="knob"></span></span>
+        </button>
+        <button class="gear" data-panel="teams" aria-label="Жасақ баптаулары"><svg class="ic"><use href="#i-settings"/></svg></button>
+      </div>
+      <div class="action-row">
+        <button class="action" data-key="br" aria-pressed="true">
+          <svg class="ic action-icon"><use href="#i-rank"/></svg>
+          <span class="action-text"><span class="action-title">Соғыс рейтингі</span><span class="action-sub" id="subBR">BR 1.0 – 14.0</span></span>
+          <span class="switch" aria-hidden="true"><span class="knob"></span></span>
+        </button>
+        <button class="gear" data-panel="br" aria-label="Рейтинг баптаулары"><svg class="ic"><use href="#i-settings"/></svg></button>
+      </div>
+      <div class="action-row">
+        <button class="action" data-key="mode" aria-pressed="true">
+          <svg class="ic action-icon"><use href="#i-map"/></svg>
+          <span class="action-text"><span class="action-title">Соғыс аймағы</span><span class="action-sub" id="subMaps">Барлық карта</span></span>
+          <span class="switch" aria-hidden="true"><span class="knob"></span></span>
+        </button>
+        <button class="gear" data-panel="maps" aria-label="Карта баптаулары"><svg class="ic"><use href="#i-settings"/></svg></button>
+      </div>
+    </section>
+
+    <footer class="launch-bar">
+      <button id="start" class="launch" disabled>Алға <svg class="ic"><use href="#i-chevron"/></svg></button>
+    </footer>
+  </main>
+
+  <div id="drawerShade" class="drawer-shade hidden"></div>
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <span id="drawerTitle">Баптаулар</span>
+      <button id="drawerClose" class="icon-btn" aria-label="Жабу"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <div id="panelTeams" class="drawer-section">
+        <div class="field-label">Жасақ саны</div>
+        <div id="squadCount" class="segmented">
+          <button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button>
+        </div>
+        <div class="field-hint" id="squadHint">—</div>
+      </div>
+      <div id="panelBR" class="drawer-section hidden">
+        <div class="field-head"><div class="field-label">BR тізімі <span id="brHint" class="field-count"></span></div><button id="brAll" class="text-btn">Барлығы</button></div>
+        <div id="brPool" class="chip-grid"></div>
+      </div>
+      <div id="panelMaps" class="drawer-section hidden">
+        <div class="field-head"><div class="field-label">Карталар <span id="mapHint" class="field-count"></span></div><button id="mapAll" class="text-btn">Барлығы</button></div>
+        <div id="mapPool" class="chip-grid chip-grid-wide"></div>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button id="drawerDone" class="btn-primary btn-wide">Дайын</button>
+    </div>
+  </aside>
+
+  <div id="busyShade" class="busy-shade hidden"><div class="busy-chip"><span></span>Іріктеу жүріп жатыр</div></div>
+
+  <div id="animation" class="animation hidden">
+    <div id="teamStage" class="stage team-stage hidden">
+      <div id="deck" class="deck"></div>
+      <div id="squadGrid" class="squad-grid"></div>
+    </div>
+
+    <div id="mapStage" class="stage map-stage hidden">
+      <div class="flip-scene">
+        <div id="flipCard" class="flip-card">
+          <div class="flip-face flip-back"><svg viewBox="0 0 320 180"><use href="#g-card-back"/></svg></div>
+          <div class="flip-face flip-front" id="flipFront"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="brStage" class="stage br-stage hidden">
+      <!-- br-roller-frame.svg split into a back layer and a front (window) layer -->
+      <div class="drum">
+        <svg class="drum-back" viewBox="0 0 520 116" preserveAspectRatio="none"><rect x="1" y="1" width="518" height="114" rx="9" fill="#111820" stroke="#465663"/><rect x="188" y="12" width="144" height="92" rx="6" fill="#263541"/></svg>
+        <div class="drum-window"><div id="brStrip" class="drum-strip"></div></div>
+        <svg class="drum-front" viewBox="0 0 520 116" preserveAspectRatio="none"><path d="M0 0h520v5H0z" fill="#C83B35"/><rect x="188" y="12" width="144" height="92" rx="6" fill="none" stroke="#C83B35" stroke-width="2"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="result" class="result hidden">
+    <div class="result-card panel">
+      <div class="result-head">
+        <h2>Нәтиже</h2>
+        <button id="closeResult" class="icon-btn" aria-label="Жабу"><svg class="ic"><use href="#i-close"/></svg></button>
+      </div>
+      <div id="resultMeta" class="result-meta"></div>
+      <div id="resultTeams" class="result-teams"></div>
+      <button id="again" class="btn-primary btn-wide" disabled><svg class="ic"><use href="#i-shuffle"/></svg><span>Жаңа іріктеу</span></button>
+    </div>
+  </div>
+
+  <div id="error" class="error hidden"></div>
+
+  <div id="demo" class="demo hidden">
+    <div class="demo-card panel">
+      <div class="brand-wrap demo-brand"><svg class="ic brand-mark"><use href="#i-crosshair"/></svg><div class="brand">JASAQ</div></div>
+      <input id="name" maxlength="40" value="tourist__" placeholder="Есім">
+      <input id="room" maxlength="80" value="showcase" placeholder="Бөлме">
+      <button id="join" class="btn-primary btn-wide">Кіру</button>
+    </div>
+  </div>
+
+  <script type="module" src="/app.bundle.js?v=8.4"></script>
+</body>
+</html>
