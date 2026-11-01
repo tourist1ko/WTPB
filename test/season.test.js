@@ -125,8 +125,8 @@ test('register adds the roster and starts season collection, status shows bot an
  messages=[];i.options.getSubcommand=()=> 'status';i.memberPermissions=new PermissionsBitField([]);
  await handleRank(i,s,guild,lookup,undefined,{status:()=> 'ok'},w,{client:{ws:{ping:42}}});
  assert.match(messages[0].content,/Бот работает/);assert.match(messages[0].content,/Beyond Alive/);assert.match(messages[0].content,/ПБ учтено за сезон: 1/);assert.match(messages[0].content,/42 мс/);
- i.commandName='rank';i.user={id:uid};i.options.getInteger=()=>1;i.editReply=async p=>{assert.match(p.content,/tourist__/);};
- await handleRank(i,s,guild,undefined,undefined,undefined,w);w.stop();s.db.close();
+ i.commandName='rank';i.user={id:uid};i.options.getInteger=()=>1;let reply;i.editReply=async p=>{reply=p;};
+ await handleRank(i,s,guild,undefined,undefined,undefined,w);assert.equal(reply.files.length,1);w.stop();s.db.close();
 });
 test('register by tag resolves the full name, removed commands are not handled',async()=>{
  const s=new RatingStore(':memory:');let names=[],message;

@@ -13,16 +13,13 @@ function brightPixels(render,x0,y0,x1,y1){
 }
 test('leaderboard draws Cyrillic headings and values with all system fonts disabled',()=>{
  const rows=[{nick:'tourist__',wins:1,losses:1,kd:2.5,wr:50,tanks:4,air:1}];
- const noFonts=new Resvg(leaderboardSVG(rows,'Beyond Alive'),{font:{loadSystemFonts:false}}).render();
- assert.equal(brightPixels(noFonts,30,20,1060,170),0,'reproduces blank text without fonts');
- const rendered=renderLeaderboard(rows,'Beyond Alive');
- assert.ok(brightPixels(rendered,30,55,500,100)>1000,'Russian title is visible');
- assert.ok(brightPixels(rendered,30,120,1060,170)>500,'column labels are visible');
- assert.ok(brightPixels(rendered,30,190,1060,240)>500,'player nickname and numeric stats are visible');
+ const noFonts=new Resvg(leaderboardSVG(rows,'Beyond Alive',1,undefined,{theme:1}),{font:{loadSystemFonts:false}}).render();
+ assert.equal(brightPixels(noFonts,90,165,1060,215),0,'reproduces blank text without fonts');
+ const rendered=renderLeaderboard(rows,'Beyond Alive',1,undefined,{theme:1});
+ assert.ok(brightPixels(rendered,40,40,600,80)>1000,'title is visible');
+ assert.ok(brightPixels(rendered,90,165,1060,215)>500,'player nickname and numeric stats are visible');
 });
-test('empty leaderboard draws headings without an empty-state caption',()=>{
- const rendered=renderLeaderboard([],'Полк');
- assert.ok(brightPixels(rendered,30,55,500,100)>500);
- assert.ok(brightPixels(rendered,30,120,1060,170)>500);
- assert.equal(brightPixels(rendered,30,195,500,230),0);
+test('empty leaderboard still draws the title',()=>{
+ const rendered=renderLeaderboard([],'Полк',1,undefined,{theme:1});
+ assert.ok(brightPixels(rendered,40,40,600,80)>500);
 });

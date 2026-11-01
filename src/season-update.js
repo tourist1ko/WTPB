@@ -9,6 +9,7 @@ export function seasonProgress(job){
  const state={running:job.phase==='scan'?(job.mode==='incremental'?'Проверка новых боёв…':'Поиск боёв сезона…'):'Загрузка отчётов боёв…',done:'Статистика обновлена.',partial:'Проверка завершена, часть отчётов пока недоступна. Повтор автоматически.',paused:'Сбор приостановлен. Повтор автоматически.'}[job.status]??'Подготовка…';
  const lines=[`Сезон ${job.season.label}`,state];
  if(job.phase==='scan')lines.push(`Просмотрено: ${job.scanned} / ${job.sourceTotal??'…'}`);
+ else if(Number.isSafeInteger(job.sourceTotal))lines.push(`Боёв полка в архиве (все сезоны): ${job.sourceTotal}`);
  lines.push(`Найдено ПБ: ${job.total??0}`,`Обработано: ${job.done??0} / ${job.total??0}`,`Недоступно: ${job.failed??0}`);
  if(job.firstBattle)lines.push('Первый найденный бой: '+moscowDay(new Date(job.firstBattle)).split('-').reverse().join('.'));
  if(job.updatedAt)lines.push('Последнее обновление: '+new Date(job.updatedAt).toISOString().slice(0,16).replace('T',' ')+' UTC');
@@ -37,14 +38,14 @@ export class SeasonUpdate {
   this.store.ingestSeason(this.guildId,battle,season);
  }
  // Background loop: checks the current season automatically, no command needed.
- auto(intervalMs=600000){
+ auto(intervalMs=300000){
   if(this.autoTimer)return;
   void this.kick();
   this.autoTimer=setInterval(()=>void this.kick(),intervalMs);this.autoTimer.unref?.();
  }
  async kick(){
   if(this.stopped||this.promise||!this.store.binding(this.guildId))return;
-  try{await this.syncRoster();await this.start();}catch(error){this.lastError=String(error?.message??error);this.log('Сезон: '+this.lastError);}
+  try{await this.syncRoster();await this.start();this.lastError='';}catch(error){this.lastError=String(error?.message??error);this.log('Сезон: '+this.lastError);}
  }
  markRoster(name){this.rosterFor=name;this.rosterAt=this.now();}
  async syncRoster(force=false){
@@ -152,6 +153,14 @@ export class SeasonUpdate {
    this.emit();this.log('Сезон: '+job.error);
   }finally{if(this.live)this.live.seasonUpdating=false;}
  }
- async status(){const season=await this.currentSeason();if(this.promise&&this.job?.season.id===season.id)return seasonProgress(this.snapshot());return seasonProgress(this.snapshot(this.saved(season)));}
+ async status(){
+  const season=await this.currentSeason();
+  const job=this.promise&&this.job?.season.id===season.id?this.snapshot():this.snapshot(this.saved(season));
+  let text=seasonProgress(job);
+  const reasons=job?this.store.db.prepare("SELECT error,count(*) AS n FROM season_items WHERE guild=? AND squadron=? AND season=? AND state='failed' GROUP BY error ORDER BY n DESC LIMIT 3").all(...this.key(job)):[];
+  if(reasons.length)text+='\nПричины пропуска:\n'+reasons.map(r=>`· ${r.error} (${r.n})`).join('\n');
+  if(this.lastError)text+='\nПоследняя ошибка: '+this.lastError.slice(0,200);
+  return text;
+ }
  stop(){this.stopped=true;this.listeners.clear();clearInterval(this.autoTimer);}
 }

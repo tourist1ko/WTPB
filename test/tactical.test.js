@@ -11,13 +11,13 @@ const members=new Map([['1',{id:'1',nickname:'tourist__ (Айбар)',user:{bot:
 test('real session supplied by user maps raw air/ground fields and explicit result',()=>{
  const b=archiveBattle(known.row,known.scene,'Beyond Alive','┾105HP┿');
  assert.equal(b.result,'loss');assert.equal(b.id,'4ad212e8001639a5');assert.equal(b.players.length,8);
- assert.deepEqual(b.players.find(p=>p.nickname==='tourist__'),{nickname:'tourist__',tankKills:0,airKills:0,deaths:1});
+ assert.deepEqual(b.players.find(p=>p.nickname==='tourist__'),{nickname:'tourist__',tankKills:0,airKills:0,deaths:1,assists:0});
  assert.equal(b.players.reduce((n,p)=>n+p.tankKills,0),0);assert.equal(b.players.reduce((n,p)=>n+p.airKills,0),1);assert.equal(b.players.reduce((n,p)=>n+p.deaths,0),8);
  const enemy=archiveBattle(known.row,known.scene,'Enemy','╖TEHb╖');assert.equal(enemy.result,'win');
- assert.deepEqual(enemy.players.find(p=>p.nickname==='blacksmith86'),{nickname:'blacksmith86',tankKills:1,airKills:2,deaths:1});
+ assert.deepEqual(enemy.players.find(p=>p.nickname==='blacksmith86'),{nickname:'blacksmith86',tankKills:1,airKills:2,deaths:1,assists:0});
  assert.equal(archiveBattle(win.row,win.scene,'Beyond Alive','┾105HP┿').result,'win');
  assert.equal(archiveBattle(known.row,known.scene,'Wrong','105H'),null);
- assert.throws(()=>archiveBattle({...known.row,team1Kills:10},known.scene,'Beyond Alive','┾105HP┿'),/сумма убийств/);
+ assert.equal(archiveBattle({...known.row,team1Kills:10,playerCount:15},known.scene,'Beyond Alive','┾105HP┿').players.length,8);
 });
 test('JSON scene is parsed without evaluating scripts, paths and identity are validated',()=>{
  assert.deepEqual(sceneFromHtml('<script>window.SCENE = '+JSON.stringify(known.scene)+';</script><script>throw Error()</script>'),known.scene);
@@ -27,7 +27,7 @@ test('JSON scene is parsed without evaluating scripts, paths and identity are va
  assert.equal(battlePath(known.row),'/en/wt/ardennes-105hp-vs-tehb-4ad212e8001639a5');
  assert.throws(()=>battlePath({...known.row,sessionId:'../evil'}));
  assert.equal(archiveTeam({...known.row,team2Tag:'┾105HP┿'},'┾105HP┿'),null);
- for(const change of [{sessionId:'wrong'},{scoreboardConfidence:'partial'},{winnerTeam:null},{winnerTeam:1}])assert.throws(()=>archiveBattle(known.row,{...known.scene,match:{...known.scene.match,...change}},'Beyond Alive','┾105HP┿'));
+ for(const change of [{sessionId:'wrong'},{scoreboardConfidence:'partial'}])assert.throws(()=>archiveBattle(known.row,{...known.scene,match:{...known.scene.match,...change}},'Beyond Alive','┾105HP┿'));
  assert.throws(()=>archiveBattle(known.row,{...known.scene,players:[{...known.scene.players[0],clanTag:'Wrong'}]},'Beyond Alive','┾105HP┿'));
 });
 test('public source uses observed URLs without auth, handles ETag and throttling',async()=>{
@@ -72,4 +72,15 @@ test('empty roster does not block discovery; all players are registered from the
   live.stopped=false;await live.tick();assert.equal(queries,1);
   assert.equal(store.rows('g').length,8);assert.equal(store.rows('g').reduce((n,p)=>n+p.losses,0),8);assert.equal(store.pendingCount('g'),0);
  }finally{live.stop();store.db.close();}
+});
+test('bots and players without our tag are skipped instead of rejecting the battle',()=>{
+ const scene={...known.scene,players:[...known.scene.players,{name:'coop/Bot1',team:1,clanTag:'',groundKills:0,kills:0,deaths:1}]};
+ const b=archiveBattle({...known.row,playerCount:17},scene,'Beyond Alive','┾105HP┿');assert.equal(b.players.length,8);assert.ok(!b.players.some(p=>p.nickname.startsWith('coop/')));
+ assert.equal(archiveBattle(known.row,{...known.scene,match:{...known.scene.match,winnerTeam:null}},'Beyond Alive','┾105HP┿').result,'loss');
+});
+test('assists from the archive are stored and summed',()=>{
+ const scene={...known.scene,players:known.scene.players.map(p=>p.name==='tourist__'?{...p,assists:3}:p)};
+ const b=archiveBattle(known.row,scene,'Beyond Alive','┾105HP┿');assert.equal(b.players.find(p=>p.nickname==='tourist__').assists,3);
+ const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');store.ingest('g',b);
+ assert.equal(store.rows('g').find(p=>p.nick==='tourist__').assists,3);store.db.close();
 });

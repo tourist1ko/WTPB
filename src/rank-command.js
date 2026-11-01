@@ -71,7 +71,7 @@ export async function handleRank(i,store,guildId,lookup=lookupSquadron,suggestio
   if(sub==='unregister'){const previous=store.squad(i.guildId);store.unregister(i.guildId);await i.editReply(previous?'Полк отвязан. Накопленная статистика сохранена.':'К серверу пока не привязан полк.');return true;}
   if(!store.squad(i.guildId))throw Error('Полк ещё не привязан. Администратор: /pb register name:название полка.');
   const season=await seasons?.currentSeason();const rows=season?store.seasonRows(i.guildId,season):store.rows(i.guildId);const page=i.options.getInteger('page')??1;
-  await i.editReply(rankPayload(rows,store.squad(i.guildId),i.user.id,page,season));
+  await i.editReply(rankPayload(rows,store.squad(i.guildId),i.user.id,page,season,store.binding(i.guildId)?.tag||store.squad(i.guildId)));
  }catch(e){await i.editReply({content:e.message,allowedMentions:{parse:[]}});}
  return true;
 }

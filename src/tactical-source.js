@@ -43,15 +43,17 @@ export function archiveBattle(row,scene,name,tag){
  const team=archiveTeam(row,tag);if(!team||row.difficulty!=='realistic')return null;
  const match=scene?.match;
  if(!match || match.sessionId!==row.sessionId || match.difficulty!=='realistic')throw Error('Архив: страница не соответствует выбранному бою.');
- if(match.scoreboardConfidence!=='full')throw Error('Архив: итоговая статистика пока неполная.');
- if(![1,2].includes(match.winnerTeam)||match.winnerTeam!==row.winnerTeam)throw Error('Архив: результат боя не подтверждён.');
- if(!Array.isArray(scene.players)||scene.players.length<2||scene.players.length>16)throw Error('Архив: неверный состав боя.');
- if(scene.players.length!==row.playerCount)throw Error('Архив: итоговый состав неполный.');
- const players=scene.players.filter(p=>p.team===team);
- if(!players.length||players.some(p=>!sameTag(p.clanTag,tag)))throw Error('Архив: состав не совпадает с полком.');
- const battle=validateBattle({id:row.sessionId.toLowerCase(),mode:'squadron_realistic',squadron:name,playedAt:row.playedAtUtc,result:match.winnerTeam===team?'win':'loss',players:players.map(p=>({nickname:p.name,tankKills:p.groundKills,airKills:p.kills,deaths:p.deaths}))});
- const total=row[`team${team}Kills`];
- if(!Number.isSafeInteger(total)||battle.players.reduce((n,p)=>n+p.tankKills+p.airKills,0)!==total)throw Error('Архив: сумма убийств не совпадает с итогом команды.');
+ if(match.scoreboardConfidence&&match.scoreboardConfidence!=='full')throw Error('Архив: итоговая статистика пока неполная.');
+ const winner=[1,2].includes(match.winnerTeam)?match.winnerTeam:row.winnerTeam;
+ if(![1,2].includes(winner))throw Error('Архив: результат боя не подтверждён.');
+ if(!Array.isArray(scene.players)||scene.players.length<2||scene.players.length>32)throw Error('Архив: неверный состав боя.');
+ // Only our side, only players with our tag (bots and empty tags are skipped).
+ const players=scene.players.filter(p=>p.team===team&&typeof p.name==='string'&&p.name.trim()&&sameTag(p.clanTag,tag));
+ if(!players.length)throw Error('Архив: в отчёте нет игроков полка.');
+ const count=v=>Number.isSafeInteger(v)&&v>=0&&v<=100?v:0;
+ const seen=new Set(),rows=[];
+ for(const p of players){const key=p.name.trim().toLowerCase();if(seen.has(key))continue;seen.add(key);rows.push({nickname:p.name.trim(),tankKills:count(p.groundKills),airKills:count(p.kills),deaths:count(p.deaths),assists:count(p.assists??p.assist??p.assistCount??p.killAssists)});}
+ const battle=validateBattle({id:row.sessionId.toLowerCase(),mode:'squadron_realistic',squadron:name,playedAt:row.playedAtUtc,result:winner===team?'win':'loss',players:rows.slice(0,8)});
  return battle;
 }
 export class TacticalSource {

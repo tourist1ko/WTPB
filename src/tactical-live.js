@@ -52,7 +52,7 @@ export class ArchiveBattles {
       const battle=await this.source.battle(row,binding.squadron,binding.tag);
       if(battle&&this.same(binding))this.store.enqueue(this.guildId,battle);
       this.retries.delete(row.sessionId);
-     }catch(e){if(e.retryMs>=300000)throw e;failures++;const attempts=(retry?.attempts??0)+1;this.retries.set(row.sessionId,{attempts,until:this.now()+Math.min(3600000,60000*2**Math.min(attempts,6))});if(this.retries.size>1000)this.retries.delete(this.retries.keys().next().value);this.log(`ПБ ${row.sessionId}: ${e.message}`);}
+     }catch(e){if(e.retryMs>=300000)throw e;failures++;const attempts=(retry?.attempts??0)+1;this.retries.set(row.sessionId,{attempts,until:this.now()+Math.min(3600000,60000*2**Math.min(attempts,6))});if(this.retries.size>1000)this.retries.delete(this.retries.keys().next().value);this.lastIssue=e.message;this.log(`ПБ ${row.sessionId}: ${e.message}`);}
      loaded++;
     }
     if(limited)break;
@@ -64,7 +64,7 @@ export class ArchiveBattles {
    await this.drain(binding);
    if(!this.same(binding))return;
    if(catchup&&!limited&&!failures)this.nextRescan=this.now()+3600000;
-   this.state=failures?'Часть боёв ещё недоступна. Проверка повторится.':limited?'Загрузка найденных ПБ продолжается.':'Архив ПБ проверен: '+new Date(this.now()).toISOString().slice(11,19)+' UTC.';
+   this.state=failures?'Часть боёв ещё недоступна ('+String(this.lastIssue??'').slice(0,150)+'). Проверка повторится.':limited?'Загрузка найденных ПБ продолжается.':'Архив ПБ проверен: '+new Date(this.now()).toISOString().slice(11,19)+' UTC.';
   }catch(e){
    this.state=String(e?.message??e);this.log('Автосбор: '+this.state);this.nextPoll=Math.max(this.nextPoll,this.now()+(e.retryMs??60000));
   }finally{this.running=false;}

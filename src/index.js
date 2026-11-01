@@ -54,7 +54,7 @@ client.once(Events.ClientReady, async readyClient => {
     console.log(`Ready: ${readyClient.user.tag}. /pb and /rank synchronized for server ${guildId}. Legacy global commands cleared.`);
     void service.refresh();
     live.start();
-    // Season battles are collected automatically: on start and every 10 minutes.
+    // Season battles are collected automatically: on start and every 5 minutes.
     seasons.auto();
     timer = setInterval(() => { void service.refresh(); }, 900000);
     timer.unref();
