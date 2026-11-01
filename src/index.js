@@ -9,9 +9,9 @@ import { RequestLimiter, enforceRateLimit } from './rate-limit.js';
 import { handleRankPage } from './rank-pages.js';
 import { SquadronSuggestions, handleSquadronAutocomplete, suggestionsFile } from './squadron-autocomplete.js';
 const suggestions=new SquadronSuggestions({file:suggestionsFile()});
-import { rankCommand, registerOption, unregisterOption, importOption, statusOption, statOption, handleRank } from './rank-command.js';
+import { rankCommand, registerOption, unregisterOption, statusOption, handleRank } from './rank-command.js';
 const store=new RatingStore((process.env.DATA_DIR || './storage')+'/rank.sqlite');
-command.options.push(registerOption,unregisterOption,importOption,statusOption,statOption);
+command.options.push(registerOption,unregisterOption,statusOption);
 
 const token = process.env.DISCORD_TOKEN?.trim();
 const guildId = process.env.GUILD_ID?.trim();
@@ -33,10 +33,10 @@ const rest = new REST({version:'10'}).setToken(token);
 const requestLimiter=new RequestLimiter();
 
 client.on(Events.InteractionCreate, interaction => {
-  (async()=>{if(await enforceRateLimit(interaction,guildId,requestLimiter))return;if(await handleSquadronAutocomplete(interaction,store,guildId,suggestions))return;if(await handleRankPage(interaction,store,guildId,seasons))return;if(!await handleRank(interaction,store,guildId,undefined,suggestions,live,seasons))await handleInteraction(interaction, service, guildId);})().catch(async error => {
+  (async()=>{if(await enforceRateLimit(interaction,guildId,requestLimiter))return;if(await handleSquadronAutocomplete(interaction,store,guildId,suggestions))return;if(await handleRankPage(interaction,store,guildId,seasons))return;if(!await handleRank(interaction,store,guildId,undefined,suggestions,live,seasons,{client,service}))await handleInteraction(interaction, service, guildId);})().catch(async error => {
     logError('Command failed', error);
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply('Не удалось получить БР. Попробуй ещё раз.').catch(() => {});
+      await interaction.editReply('Не удалось выполнить команду. Попробуй ещё раз.').catch(() => {});
     }
   });
 });
@@ -54,6 +54,8 @@ client.once(Events.ClientReady, async readyClient => {
     console.log(`Ready: ${readyClient.user.tag}. /pb and /rank synchronized for server ${guildId}. Legacy global commands cleared.`);
     void service.refresh();
     live.start();
+    // Season battles are collected automatically: on start and every 10 minutes.
+    seasons.auto();
     timer = setInterval(() => { void service.refresh(); }, 900000);
     timer.unref();
   } catch (error) {

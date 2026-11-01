@@ -14,3 +14,14 @@ export function battleTime(value){
  return time;
 }
 export function inSeason(playedAt,season){const time=battleTime(playedAt);return Number.isFinite(time)&&time>=season.startMs&&time<season.endMs;}
+// Used only when the official schedule for today is not available yet (for
+// example right after a season change). Squadron seasons run in two-month
+// blocks starting in odd months (Sep–Oct, Nov–Dec, ...). Marked provisional.
+export function fallbackSeason(now=Date.now()){
+ const day=new Date(now+3*3600000);
+ const year=day.getUTCFullYear(),month=day.getUTCMonth()+1;
+ const first=month%2?month:month-1;
+ const pad=n=>String(n).padStart(2,'0');
+ const last=new Date(Date.UTC(year,first+1,0)).getUTCDate();
+ return {start:`${year}-${pad(first)}-01`,end:`${year}-${pad(first+1)}-${pad(last)}`,provisional:true};
+}

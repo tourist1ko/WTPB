@@ -34,21 +34,32 @@ export function normalizeTag(tag) {
  if(tag.startsWith('[')&&tag.endsWith(']'))tag=tag.slice(1,-1).trim();
  return tag.toLowerCase();
 }
+// Tag without in-game decorations: "┾105HP┿", "[105HP]" and "105HP" share core "105hp".
+export function coreTag(tag) {
+ if(typeof tag!=='string')return '';
+ return tag.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').toLowerCase();
+}
+// Exact match first; decoration-insensitive match as fallback.
+export function sameTag(a,b) {
+ const x=normalizeTag(a),y=normalizeTag(b);
+ if(!x||!y)return false;
+ return x===y||(coreTag(a)!==''&&coreTag(a)===coreTag(b));
+}
 export function battleForSquad(replay,name,tag) {
  const expected=normalizeTag(tag);
- if(!expected || !replay || replay.type!=='sqb' || replay.difficulty!=='realistic' || replay.status!=='completed')return null;
+ if(!expected || !coreTag(tag) || !replay || replay.type!=='sqb' || replay.difficulty!=='realistic' || replay.status!=='completed')return null;
  if(replay.draw)return null;
  const winner=replay.winner_team,loser=replay.loser_team;
  if(![1,2].includes(winner)||![1,2].includes(loser)||winner===loser)throw Error('WTApi: не указан достоверный победитель.');
  if(!Number.isSafeInteger(replay.end_ts)||replay.end_ts<=0)throw Error('WTApi: нет времени завершения боя.');
  const teams=new Set();
- if(normalizeTag(replay.winner_tag)===expected)teams.add(winner);
- if(normalizeTag(replay.loser_tag)===expected)teams.add(loser);
- for(const p of replay.players??[])if(normalizeTag(p.tag)===expected)teams.add(p.team);
+ if(sameTag(replay.winner_tag,tag))teams.add(winner);
+ if(sameTag(replay.loser_tag,tag))teams.add(loser);
+ for(const p of replay.players??[])if(sameTag(p.tag,tag))teams.add(p.team);
  if(!teams.size)return null;
  if(teams.size!==1||![1,2].includes([...teams][0]))throw Error('WTApi: неоднозначная сторона полка.');
  const team=[...teams][0];
  const players=(replay.players??[]).filter(p=>p.team===team);
- if(players.some(p=>p.tag && p.tag!==String(team) && normalizeTag(p.tag)!==expected))throw Error('WTApi: состав содержит другой полк.');
+ if(players.some(p=>p.tag && p.tag!==String(team) && !sameTag(p.tag,tag)))throw Error('WTApi: состав содержит другой полк.');
  return validateBattle({id:replay.id,mode:'squadron_realistic',squadron:name,playedAt:new Date((replay.start_ts||replay.end_ts)*1000).toISOString(),result:team===winner?'win':'loss',players:players.map(p=>({nickname:p.name,tankKills:p.ground_kills,airKills:p.air_kills,deaths:p.deaths}))});
 }

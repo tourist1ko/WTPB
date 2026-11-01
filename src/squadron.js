@@ -12,16 +12,37 @@ function decode(s){
     return ({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '})[value.toLowerCase()]??whole;
   });
 }
+// Title is "<tag> <full name>". The tag may be "[ABC]", "[[_QZ_]]" or decorated
+// like "┾105HP┿". Split by the requested full name instead of guessing tag shape,
+// so a decorated tag is never treated as part of another squadron's name.
+export function parseSquadronTitle(display,requested){
+  const want=normalize(requested);
+  for(let i=0;i<display.length;i++){
+    if(!/\s/u.test(display[i]))continue;
+    const name=display.slice(i+1).trim(),tag=display.slice(0,i).trim();
+    if(tag&&name&&normalize(name)===want)return {name,tag:tag.replace(/^\[([\s\S]+)\]$/u,'$1')};
+  }
+  return null;
+}
+export function parseSquadronMembers(html){
+  const members=new Map();
+  for(const m of html.matchAll(/href\s*=\s*["'][^"']*userinfo\/?\?nick=([^"'&#]+)/gi)){
+    let nick;
+    try{nick=decodeURIComponent(decode(m[1]).replace(/\+/g,' ')).trim();}catch{continue;}
+    if(nick&&nick.length<=64&&!/[\x00-\x1f\x7f]/u.test(nick)&&!members.has(nick.toLowerCase()))members.set(nick.toLowerCase(),nick);
+    if(members.size>=256)break;
+  }
+  return [...members.values()];
+}
 export function parseSquadronProfile(html,requested){
   const title=html.match(/<div\b[^>]*class\s*=\s*["'][^"']*\bsquadrons-info__title\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1];
   // A generic HTTP 200 page or a verification screen is not a valid squadron.
   if(!title || !html.includes('squadrons-info__meta-item'))throw unavailable();
   const display=decode(title.replace(/<[^>]*>/g,'')).trim().replace(/\s+/gu,' ');
-  const match=display.match(/^\[([\s\S]+?)\]\s+(.+)$/u);
-  if(!match)throw unavailable();
-  const name=match[2].trim();
-  if(normalize(name)!==normalize(requested))throw notFound();
-  return {name,tag:match[1]};
+  if(!/\s/u.test(display))throw unavailable();
+  const parsed=parseSquadronTitle(display,requested);
+  if(!parsed)throw notFound();
+  return {...parsed,members:parseSquadronMembers(html)};
 }
 export async function lookupSquadron(input,{fetchImpl=fetch}={}){
   const requested=input.trim().replace(/\s+/gu,' ');

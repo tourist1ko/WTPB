@@ -25,6 +25,8 @@ export function validateBattle(b) {
   }
   return b;
 }
+// Players with battles first, then К/Д, WinRate and nickname.
+const byRank=(a,b)=>Number(b.wins+b.losses>0)-Number(a.wins+a.losses>0)||b.kd-a.kd||b.wr-a.wr||a.nick.localeCompare(b.nick);
 export class RatingStore {
   constructor(path) {
     mkdirSync(dirname(path),{recursive:true}); this.db=new DatabaseSync(path);
@@ -34,6 +36,7 @@ export class RatingStore {
     this.db.exec('CREATE TABLE IF NOT EXISTS tracked_players(guild TEXT NOT NULL,squadron TEXT NOT NULL,uid TEXT NOT NULL,nick TEXT NOT NULL,label TEXT NOT NULL,PRIMARY KEY(guild,squadron,uid),UNIQUE(guild,squadron,nick))');
     this.db.exec('CREATE TABLE IF NOT EXISTS battle_reports(guild TEXT NOT NULL,squadron TEXT NOT NULL,battle TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(guild,squadron,battle));CREATE TABLE IF NOT EXISTS player_battles(guild TEXT NOT NULL,squadron TEXT NOT NULL,battle TEXT NOT NULL,uid TEXT NOT NULL,nick TEXT NOT NULL,PRIMARY KEY(guild,squadron,battle,uid,nick))');
     this.db.exec('CREATE TABLE IF NOT EXISTS season_battles(guild TEXT NOT NULL,squadron TEXT NOT NULL,season TEXT NOT NULL,battle TEXT NOT NULL,playedAt TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(guild,squadron,season,battle));CREATE TABLE IF NOT EXISTS season_player_battles(guild TEXT NOT NULL,squadron TEXT NOT NULL,season TEXT NOT NULL,battle TEXT NOT NULL,uid TEXT NOT NULL,nick TEXT NOT NULL,PRIMARY KEY(guild,squadron,season,battle,uid,nick));CREATE TABLE IF NOT EXISTS season_stats(guild TEXT NOT NULL,squadron TEXT NOT NULL,season TEXT NOT NULL,uid TEXT NOT NULL,nick TEXT NOT NULL,tanks INTEGER DEFAULT 0,air INTEGER DEFAULT 0,deaths INTEGER DEFAULT 0,wins INTEGER DEFAULT 0,losses INTEGER DEFAULT 0,PRIMARY KEY(guild,squadron,season,uid,nick))');
+    this.db.exec('CREATE TABLE IF NOT EXISTS squad_roster(guild TEXT NOT NULL,squadron TEXT NOT NULL,nick TEXT NOT NULL,label TEXT NOT NULL,PRIMARY KEY(guild,squadron,nick))');
   }
   squad(guild){return this.db.prepare('SELECT squadron FROM guilds WHERE guild=?').get(guild)?.squadron;}
   binding(guild){return this.db.prepare('SELECT squadron,tag FROM guilds WHERE guild=?').get(guild);}
@@ -80,6 +83,30 @@ export class RatingStore {
       this.db.exec('COMMIT');return {added:!current,player:current??{uid,nick,label},backfilled};
     }catch(error){this.db.exec('ROLLBACK');throw error;}
   }
+  // Current squadron roster from the official site. Members are added to the
+  // statistics list right away; former members keep rows only if they have battles.
+  setRoster(guild,name,nicks){
+    if(this.squad(guild)!==name)return 0;
+    const clean=new Map();
+    for(const value of nicks??[]){const label=String(value??'').trim();if(label&&label.length<=100&&!/[\u0000-\u001f\u007f]/.test(label))clean.set(label.toLowerCase(),label);}
+    if(!clean.size)return 0;
+    let added=0;
+    this.db.exec('BEGIN IMMEDIATE');
+    try{
+      this.db.prepare('DELETE FROM squad_roster WHERE guild=? AND squadron=?').run(guild,name);
+      const roster=this.db.prepare('INSERT OR IGNORE INTO squad_roster VALUES(?,?,?,?)');
+      const player=this.db.prepare('INSERT OR IGNORE INTO tracked_players(guild,squadron,uid,nick,label) VALUES(?,?,?,?,?)');
+      for(const [nick,label] of clean){roster.run(guild,name,nick,label);added+=player.run(guild,name,'wt:'+nick,nick,label).changes;}
+      this.db.prepare(`DELETE FROM tracked_players WHERE guild=? AND squadron=? AND uid LIKE 'wt:%'
+        AND nick NOT IN (SELECT nick FROM squad_roster WHERE guild=? AND squadron=?)
+        AND NOT EXISTS (SELECT 1 FROM season_player_battles b WHERE b.guild=tracked_players.guild AND b.squadron=tracked_players.squadron AND b.uid=tracked_players.uid)
+        AND NOT EXISTS (SELECT 1 FROM player_battles b WHERE b.guild=tracked_players.guild AND b.squadron=tracked_players.squadron AND b.uid=tracked_players.uid)`).run(guild,name,guild,name);
+      this.db.exec('COMMIT');
+    }catch(error){this.db.exec('ROLLBACK');throw error;}
+    return added;
+  }
+  rosterCount(guild){return this.db.prepare('SELECT count(*) AS n FROM squad_roster WHERE guild=? AND squadron=?').get(guild,this.squad(guild)??'').n;}
+  seasonBattleCount(guild,range){return this.db.prepare('SELECT count(*) AS n FROM season_battles WHERE guild=? AND squadron=? AND season=?').get(guild,this.squad(guild)??'',seasonWindow(range).id).n;}
   removePlayer(guild,uid){return this.db.prepare('DELETE FROM tracked_players WHERE guild=? AND squadron=? AND uid=?').run(guild,this.squad(guild)??'',uid).changes>0;}
   ensureBattlePlayers(guild,b){
     // WT nicknames are the stable identity available in public battle reports.
@@ -114,7 +141,7 @@ export class RatingStore {
       this.db.exec('COMMIT');return {duplicate:false,count};
     }catch(e){this.db.exec('ROLLBACK');throw e;}
   }
-  rows(guild){return this.db.prepare(`SELECT p.uid,p.label AS nick,COALESCE(s.tanks,0) AS tanks,COALESCE(s.air,0) AS air,COALESCE(s.deaths,0) AS deaths,COALESCE(s.wins,0) AS wins,COALESCE(s.losses,0) AS losses FROM tracked_players p LEFT JOIN stats s ON s.guild=p.guild AND s.squadron=p.squadron AND s.uid=p.uid AND s.nick=p.nick WHERE p.guild=? AND p.squadron=?`).all(guild,this.squad(guild)??'').map(p=>({...p,kd:p.deaths?(p.tanks+p.air)/p.deaths:(p.tanks+p.air?Infinity:0),wr:p.wins+p.losses?p.wins/(p.wins+p.losses)*100:0})).sort((a,b)=>b.kd-a.kd||b.wr-a.wr||a.nick.localeCompare(b.nick));}
+  rows(guild){return this.db.prepare(`SELECT p.uid,p.label AS nick,COALESCE(s.tanks,0) AS tanks,COALESCE(s.air,0) AS air,COALESCE(s.deaths,0) AS deaths,COALESCE(s.wins,0) AS wins,COALESCE(s.losses,0) AS losses FROM tracked_players p LEFT JOIN stats s ON s.guild=p.guild AND s.squadron=p.squadron AND s.uid=p.uid AND s.nick=p.nick WHERE p.guild=? AND p.squadron=?`).all(guild,this.squad(guild)??'').map(p=>({...p,kd:p.deaths?(p.tanks+p.air)/p.deaths:(p.tanks+p.air?Infinity:0),wr:p.wins+p.losses?p.wins/(p.wins+p.losses)*100:0})).sort(byRank);}
   applySeasonPlayer(guild,b,season,player,row){
     if(!this.db.prepare('INSERT OR IGNORE INTO season_player_battles VALUES(?,?,?,?,?,?)').run(guild,b.squadron,season,b.id,player.uid,player.nick).changes)return 0;
     this.db.prepare('INSERT INTO season_stats VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(guild,squadron,season,uid,nick) DO UPDATE SET tanks=tanks+excluded.tanks,air=air+excluded.air,deaths=deaths+excluded.deaths,wins=wins+excluded.wins,losses=losses+excluded.losses').run(guild,b.squadron,season,player.uid,player.nick,row.tankKills,row.airKills,row.deaths,+(b.result==='win'),+(b.result==='loss'));
@@ -141,6 +168,6 @@ export class RatingStore {
   }
   seasonRows(guild,range){
     const season=seasonWindow(range);
-    return this.db.prepare('SELECT p.uid,p.label AS nick,COALESCE(s.tanks,0) AS tanks,COALESCE(s.air,0) AS air,COALESCE(s.deaths,0) AS deaths,COALESCE(s.wins,0) AS wins,COALESCE(s.losses,0) AS losses FROM tracked_players p LEFT JOIN season_stats s ON s.guild=p.guild AND s.squadron=p.squadron AND s.uid=p.uid AND s.nick=p.nick AND s.season=? WHERE p.guild=? AND p.squadron=?').all(season.id,guild,this.squad(guild)??'').map(p=>({...p,kd:p.deaths?(p.tanks+p.air)/p.deaths:(p.tanks+p.air?Infinity:0),wr:p.wins+p.losses?p.wins/(p.wins+p.losses)*100:0})).sort((a,b)=>b.kd-a.kd||b.wr-a.wr||a.nick.localeCompare(b.nick));
+    return this.db.prepare('SELECT p.uid,p.label AS nick,COALESCE(s.tanks,0) AS tanks,COALESCE(s.air,0) AS air,COALESCE(s.deaths,0) AS deaths,COALESCE(s.wins,0) AS wins,COALESCE(s.losses,0) AS losses FROM tracked_players p LEFT JOIN season_stats s ON s.guild=p.guild AND s.squadron=p.squadron AND s.uid=p.uid AND s.nick=p.nick AND s.season=? WHERE p.guild=? AND p.squadron=?').all(season.id,guild,this.squad(guild)??'').map(p=>({...p,kd:p.deaths?(p.tanks+p.air)/p.deaths:(p.tanks+p.air?Infinity:0),wr:p.wins+p.losses?p.wins/(p.wins+p.losses)*100:0})).sort(byRank);
   }
 }

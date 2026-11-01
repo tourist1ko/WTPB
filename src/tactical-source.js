@@ -1,5 +1,5 @@
 import { validateBattle } from './rating.js';
-import { normalizeTag } from './wtapi-codec.js';
+import { normalizeTag, coreTag, sameTag } from './wtapi-codec.js';
 
 export const ARCHIVE='https://www.antoniocnz.com';
 const HEADERS={'User-Agent':'PB-Rank/1.5 (Discord squadron statistics)','Accept':'application/json,text/html'};
@@ -29,10 +29,15 @@ export function sceneFromHtml(html){
  }
  throw Error('Архив: данные боя оборваны.');
 }
+// Which side (1 or 2) is the registered squadron. Exact tag first, then the
+// tag without decorations, so "[105HP]" from the site still finds "┾105HP┿".
 export function archiveTeam(row,tag){
- const expected=normalizeTag(tag);if(!expected)return null;
+ const expected=normalizeTag(tag),core=coreTag(tag);if(!expected||!core)return null;
  const a=normalizeTag(row.team1Tag)===expected,b=normalizeTag(row.team2Tag)===expected;
- return a!==b?(a?1:2):null;
+ if(a!==b)return a?1:2;
+ if(a&&b)return null;
+ const c=coreTag(row.team1Tag)===core,d=coreTag(row.team2Tag)===core;
+ return c!==d?(c?1:2):null;
 }
 export function archiveBattle(row,scene,name,tag){
  const team=archiveTeam(row,tag);if(!team||row.difficulty!=='realistic')return null;
@@ -43,14 +48,14 @@ export function archiveBattle(row,scene,name,tag){
  if(!Array.isArray(scene.players)||scene.players.length<2||scene.players.length>16)throw Error('Архив: неверный состав боя.');
  if(scene.players.length!==row.playerCount)throw Error('Архив: итоговый состав неполный.');
  const players=scene.players.filter(p=>p.team===team);
- if(players.some(p=>normalizeTag(p.clanTag)!==normalizeTag(tag)))throw Error('Архив: состав не совпадает с полком.');
+ if(!players.length||players.some(p=>!sameTag(p.clanTag,tag)))throw Error('Архив: состав не совпадает с полком.');
  const battle=validateBattle({id:row.sessionId.toLowerCase(),mode:'squadron_realistic',squadron:name,playedAt:row.playedAtUtc,result:match.winnerTeam===team?'win':'loss',players:players.map(p=>({nickname:p.name,tankKills:p.groundKills,airKills:p.kills,deaths:p.deaths}))});
  const total=row[`team${team}Kills`];
  if(!Number.isSafeInteger(total)||battle.players.reduce((n,p)=>n+p.tankKills+p.airKills,0)!==total)throw Error('Архив: сумма убийств не совпадает с итогом команды.');
  return battle;
 }
 export class TacticalSource {
- constructor({fetchImpl=fetch}={}){this.fetchImpl=fetchImpl;this.cache=new Map();}
+ constructor({fetchImpl=fetch}={}){this.fetchImpl=fetchImpl;this.cache=new Map();this.queries=new Map();}
  async request(path,maxBytes,conditional=false){
   const cached=conditional?this.cache.get(path):null;
   const headers={...HEADERS};if(cached?.etag)headers['If-None-Match']=cached.etag;
@@ -72,10 +77,23 @@ export class TacticalSource {
   if(conditional){if(this.cache.size>=64)this.cache.clear();this.cache.set(path,{etag:r.headers?.get('etag'),text});}
   return text;
  }
- async list(tag,skip=0){
-  const data=JSON.parse(await this.request('/wt/api/replays?skip='+skip+'&take=20&clan='+encodeURIComponent(tag),2*1024*1024,true));
+ async page(query,skip){
+  const data=JSON.parse(await this.request('/wt/api/replays?skip='+skip+'&take=20&clan='+encodeURIComponent(query),2*1024*1024,true));
   if(!Array.isArray(data?.items)||data.items.length>20||!Number.isSafeInteger(data.total)||data.total<0)throw Error('Архив: формат списка боёв изменился.');
   return data;
+ }
+ // The archive filters by the tag as it appears in battles. The official site may
+ // show it differently, so try the tag, the tag without brackets and the bare core.
+ async list(tag,skip=0){
+  const saved=this.queries.get(tag);if(saved)return this.page(saved,skip);
+  const bare=String(tag??'').trim().replace(/^\[(.*)\]$/u,'$1').trim();
+  const core=String(tag??'').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'');
+  let first;
+  for(const query of [...new Set([tag,bare,core].filter(Boolean))]){
+   const data=await this.page(query,skip);first??=data;
+   if(data.total>0&&data.items.some(row=>archiveTeam(row,tag))){this.queries.set(tag,query);return data;}
+  }
+  return first;
  }
  async battle(row,name,tag){return archiveBattle(row,sceneFromHtml(await this.request(battlePath(row),16*1024*1024)),name,tag);}
 }

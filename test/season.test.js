@@ -7,7 +7,7 @@ import { PermissionsBitField,PermissionFlagsBits } from 'discord.js';
 import { RatingStore } from '../src/rating.js';
 import { seasonWindow,inSeason } from '../src/season.js';
 import { SeasonUpdate,seasonProgress } from '../src/season-update.js';
-import { SourceError } from '../src/tactical-source.js';
+import { SourceError, archiveTeam } from '../src/tactical-source.js';
 import { handleRank } from '../src/rank-command.js';
 import { rankPayload,handleRankPage } from '../src/rank-pages.js';
 import { leaderboardSVG } from '../src/leaderboard.js';
@@ -51,7 +51,7 @@ test('incomplete reports are reported and retried, successful reports remain cou
  const s=store(),rows=[row(1),row(2)];let fail=true,downloads=0;
  const source={list:async()=>({total:2,items:rows}),battle:async r=>{downloads++;if(fail&&r.sessionId===rows[1].sessionId)throw Error('incomplete');return report(r);}};
  const w=worker(s,source);await w.start();await w.promise;assert.equal(w.snapshot().status,'partial');assert.equal(w.snapshot().failed,1);assert.equal(s.seasonRows(guild,season)[0].wins,1);
- assert.match(seasonProgress(w.snapshot()),/пропусками/);fail=false;await w.start();await w.promise;assert.equal(w.snapshot().status,'done');assert.equal(w.snapshot().failed,0);assert.equal(downloads,3);assert.equal(s.seasonRows(guild,season)[0].wins,2);w.stop();s.db.close();
+ assert.match(seasonProgress(w.snapshot()),/недоступна/);fail=false;await w.start();await w.promise;assert.equal(w.snapshot().status,'done');assert.equal(w.snapshot().failed,0);assert.equal(downloads,3);assert.equal(s.seasonRows(guild,season)[0].wins,2);w.stop();s.db.close();
 });
 test('rate limit and checkpoint survive restart, early retry does not contact source',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'pb-season-')),path=join(dir,'rank.sqlite');let now=Date.parse('2026-10-23T12:00:00Z'),limited=true,calls=0;
@@ -76,14 +76,6 @@ test('season date is shown on each page and buttons from a previous season expir
  let message;const i={isButton:()=>true,customId:payload.components[0].toJSON().components[0].custom_id,guildId:guild,user:{id:uid},deferUpdate:async()=>{},followUp:async p=>message=p};
  await handleRankPage(i,s,guild,{currentSeason:async()=>next});assert.match(message.content,/сезон/);s.db.close();
 });
-test('admin update starts background work and reports progress, rank uses seasonal rows',async()=>{
- const s=store(),w=worker(s,{list:async()=>({total:1,items:[row(1)]}),battle:async r=>report(r)}),messages=[];
- const i={isChatInputCommand:()=>true,guildId:guild,commandName:'pb',memberPermissions:new PermissionsBitField([PermissionFlagsBits.Administrator]),options:{getSubcommand:()=> 'update',getSubcommandGroup:()=> 'stat'},deferReply:async()=>{},editReply:async p=>messages.push(p)};
- await handleRank(i,s,guild,undefined,undefined,undefined,w);await w.promise;await new Promise(r=>setImmediate(r));
- assert.ok(messages.some(p=>p.content.includes('Сезон')));assert.ok(messages.some(p=>p.content.includes('Обработано: 1 / 1')));
- i.commandName='rank';i.user={id:uid};i.options.getInteger=()=>1;i.editReply=async p=>assert.equal(p.files.length,1);
- await handleRank(i,s,guild,undefined,undefined,undefined,w);w.stop();s.db.close();
-});
 test('automatic collection continues updating the current season after the full scan',async()=>{
  const s=store(),r=row(77,'2026-10-23T11:00:00Z');
  const source={list:async()=>({total:1,items:[r]}),battle:async value=>report(value)};
@@ -101,19 +93,6 @@ test('completed job keeps checkpoints, incremental update visits only the new he
  rows.unshift(row(900,'2026-10-23T11:00:00Z'));skips=[];const progress=[];w.subscribe(p=>progress.push(p));
  await w.start();await w.promise;assert.deepEqual(skips,[0,20]);assert.equal(downloads,62);assert.equal(s.seasonRows(guild,season)[0].wins,62);
  assert.ok(progress.every(p=>p.done>=61));assert.equal(w.snapshot().total,62);w.stop();s.db.close();
-});
-test('late Discord participant receives cached season results on addplayer with no source calls or collector restart',async()=>{
- const s=store();let requests=0;
- const source={list:async()=>{requests++;return {total:1,items:[row(1)]};},battle:async value=>{requests++;return report(value);}};
- const w=worker(s,source);await w.start();await w.promise;assert.equal(requests,2);
- source.list=source.battle=async()=>{throw Error('Unexpected source request');};let ticks=0,message;
- const id='223456789012345678',user={id,username:'DiscordName',bot:false};
- const i={isChatInputCommand:()=>true,guildId:guild,commandName:'pb',memberPermissions:new PermissionsBitField([PermissionFlagsBits.Administrator]),options:{getSubcommand:()=> 'addplayer',getSubcommandGroup:()=> 'stat',getUser:()=>user,getString:()=> 'LatePlayer'},guild:{members:{fetch:async()=>({nickname:'Другой ник',user})}},deferReply:async()=>{},editReply:async p=>message=p};
- await handleRank(i,s,guild,undefined,undefined,{tick:()=>ticks++},w);
- assert.match(message.content,/Учтено боёв: 1/);assert.equal(ticks,0);assert.equal(requests,2);
- assert.equal(s.seasonRows(guild,season).find(p=>p.uid===id).wins,1);
- await handleRank(i,s,guild,undefined,undefined,{tick:()=>ticks++},w);
- assert.match(message.content,/Уже добавлен/);assert.equal(s.seasonRows(guild,season).find(p=>p.uid===id).wins,1);w.stop();s.db.close();
 });
 test('explicit full search discovers older archive additions while retaining existing results',async()=>{
  const s=store(),rows=Array.from({length:41},(_,i)=>row(i+1));let downloads=0,skips=[];
@@ -134,4 +113,34 @@ test('rows shifted between pages during incremental discovery do not become an e
  rows.unshift(...Array.from({length:25},(_,i)=>row(900+i)));shift=true;skips=[];
  await w.start();await w.promise;assert.deepEqual(skips,[0,20,40,60]);assert.equal(downloads,70);
  await w.start();await w.promise;assert.equal(downloads,90);assert.equal(s.seasonRows(guild,season)[0].wins,90);w.stop();s.db.close();
+});
+test('register adds the roster and starts season collection, status shows bot and squadron',async()=>{
+ const s=new RatingStore(':memory:');const w=worker(s,{list:async()=>({total:1,items:[row(1)]}),battle:async r=>report(r)});let messages=[];
+ const i={isChatInputCommand:()=>true,guildId:guild,commandName:'pb',memberPermissions:new PermissionsBitField([PermissionFlagsBits.Administrator]),options:{getSubcommand:()=> 'register',getString:()=>squadron},deferReply:async()=>{},editReply:async p=>messages.push(p)};
+ const lookup=async()=>({name:squadron,tag,members:['tourist__','RosterOnly']});
+ await handleRank(i,s,guild,lookup,undefined,undefined,w);
+ assert.match(messages[0].content,/Полк привязан: ┾105HP┿ Beyond Alive/);assert.match(messages[0].content,/добавлено в статистику: 2/);
+ await new Promise(r=>setImmediate(r));await w.promise;
+ const rows=s.seasonRows(guild,season);assert.equal(rows.find(p=>p.nick==='tourist__').wins,1);assert.equal(rows.find(p=>p.nick==='RosterOnly').wins,0);
+ messages=[];i.options.getSubcommand=()=> 'status';i.memberPermissions=new PermissionsBitField([]);
+ await handleRank(i,s,guild,lookup,undefined,{status:()=> 'ok'},w,{client:{ws:{ping:42}}});
+ assert.match(messages[0].content,/Бот работает/);assert.match(messages[0].content,/Beyond Alive/);assert.match(messages[0].content,/ПБ учтено за сезон: 1/);assert.match(messages[0].content,/42 мс/);
+ i.commandName='rank';i.user={id:uid};i.options.getInteger=()=>1;i.editReply=async p=>{assert.match(p.content,/tourist__/);};
+ await handleRank(i,s,guild,undefined,undefined,undefined,w);w.stop();s.db.close();
+});
+test('register by tag resolves the full name, removed commands are not handled',async()=>{
+ const s=new RatingStore(':memory:');let names=[],message;
+ const lookup=async name=>{names.push(name);if(name!==squadron){const e=Error('не найден');e.code='NOT_FOUND';throw e;}return {name:squadron,tag:'[105HP]',members:[]};};
+ const suggestions={entries:new Map([['x',{name:squadron,tag:'┾105HP┿'}]]),remember(){}};
+ const i={isChatInputCommand:()=>true,guildId:guild,commandName:'pb',memberPermissions:new PermissionsBitField([PermissionFlagsBits.Administrator]),options:{getSubcommand:()=> 'register',getString:()=> '105HP'},deferReply:async()=>{},editReply:async p=>message=p};
+ await handleRank(i,s,guild,lookup,suggestions);assert.deepEqual(names,['105HP',squadron]);assert.equal(s.squad(guild),squadron);
+ for(const sub of ['import','update','list','addplayer','removeplayer']){i.options.getSubcommand=()=>sub;assert.equal(await handleRank(i,s,guild,lookup),false);}
+ s.db.close();
+});
+test('archive tag shown differently on the site still matches only the right squadron',()=>{
+ assert.equal(archiveTeam(base,'[105HP]'),1);assert.equal(archiveTeam(base,'105HP'),1);assert.equal(archiveTeam(base,'TEHb'),2);assert.equal(archiveTeam(base,'105H'),null);
+});
+test('provisional season is used when the official schedule does not cover today',async()=>{
+ const s=store();const w=new SeasonUpdate({store:s,guildId:guild,getSeason:async()=>null,source:{},now:()=>Date.parse('2026-11-01T12:00:00Z'),log:()=>{}});
+ const value=await w.currentSeason();assert.equal(value.id,'2026-11-01_2026-12-31');assert.equal(value.provisional,true);w.stop();s.db.close();
 });
