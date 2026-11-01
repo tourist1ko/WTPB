@@ -8,7 +8,7 @@ RUN npm run build
 FROM golang:1.23-alpine AS backend
 WORKDIR /app
 ENV GOSUMDB=off
-COPY go.mod go.sum main.go ./
+COPY go.mod go.sum *.go ./
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /jasaq .
 
