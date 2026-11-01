@@ -25,7 +25,6 @@ export class ArchiveBattles {
   try{
    let binding=this.store.binding(this.guildId);
    if(!binding){this.state='Полк не привязан.';return;}
-   if(!this.store.players(this.guildId).length){this.state='Добавь участников через /pb stat addplayer.';return;}
    if(!binding.tag){const profile=await this.lookup(binding.squadron);this.store.setTag(this.guildId,binding.squadron,profile.tag);binding=this.store.binding(this.guildId);}
    if(!binding?.tag)throw Error('Не удалось определить тег полка.');
    if(!this.same(binding))return;

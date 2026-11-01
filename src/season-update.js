@@ -52,7 +52,6 @@ export class SeasonUpdate {
   const season=await this.currentSeason(true);
   if(this.promise){if(!this.same(this.job))throw Error('Предыдущий прогон останавливается. Повтори команду.');return this.snapshot();}
   let binding=this.store.binding(this.guildId);if(!binding)throw Error('Сначала привяжи полк через /pb register.');
-  if(!this.store.players(this.guildId).length)throw Error('Сначала добавь участников через /pb stat addplayer.');
   if(!binding.tag){const profile=await this.lookup(binding.squadron);if(this.store.squad(this.guildId)!==binding.squadron)throw Error('Привязка полка изменилась.');this.store.setTag(this.guildId,binding.squadron,profile.tag);binding=this.store.binding(this.guildId);}
   if(!binding?.tag)throw Error('Не удалось определить тег полка.');
   // Recheck after asynchronous profile/season lookup: only one background task may run.

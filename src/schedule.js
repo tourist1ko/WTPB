@@ -131,7 +131,7 @@ export class ScheduleService {
     const now = this.now();
     const hasCurrent = this.schedules.some(s => currentRow(s, now));
     // Retry failed sources at most once every 5 minutes. Coalesce simultaneous calls.
-    if ((!this.lastSuccess || now.getTime() - this.lastSuccess >= 3600000 || !hasCurrent) &&
+    if ((!this.lastSuccess || now.getTime() - this.lastSuccess >= 900000 || !hasCurrent) &&
         (!this.lastAttempt || now.getTime() - this.lastAttempt >= 300000)) await this.refresh();
     for (const schedule of this.schedules) {
       const row = currentRow(schedule, this.now());

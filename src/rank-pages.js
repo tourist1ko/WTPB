@@ -1,8 +1,33 @@
 import { createHash } from 'node:crypto';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } from 'discord.js';
-import { leaderboard, pageState } from './leaderboard.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
+import { PAGE_SIZE, pageState } from './leaderboard.js';
 const squadKey = (squad,season) => createHash('sha256').update(season?squad+'\0'+season.id:squad).digest('hex').slice(0,12);
-const updating=new Set();
+const safeNick = value => Array.from(String(value ?? 'Без ника').replace(/[\r\n`]/g, ' ')).slice(0,18).join('');
+const number = value => Number.isFinite(value) ? String(value) : '∞';
+export function rankText(rows,squad,page=1,season){
+  const {page:current,pages,start}=pageState(rows.length,page);
+  const selected=rows.slice(start,start+PAGE_SIZE);
+  const lines=[
+    `**${squad} · Полковые бои**`,
+    season ? `Сезон: **${season.label}**` : 'Общая статистика',
+    `Страница ${current}/${pages} · Игроков: ${rows.length}`,
+    '',
+    '```',
+    '#  Игрок               К/Д    WinRate  Танки  Самолёт',
+  ];
+  if(!selected.length) lines.push('   Пока нет данных о боях.');
+  selected.forEach((r,index)=>{
+    const rank=String(start+index+1).padStart(2,' ');
+    const nick=safeNick(r.nick).padEnd(18,' ');
+    const kd=number(r.kd).padStart(5,' ');
+    const wr=(Number(r.wr)||0).toFixed(1).padStart(6,' ')+'%';
+    const tanks=String(r.tanks??0).padStart(6,' ');
+    const air=String(r.air??0).padStart(7,' ');
+    lines.push(`${rank} ${nick} ${kd}  ${wr} ${tanks} ${air}`);
+  });
+  lines.push('```','К/Д · WinRate · количество убийств');
+  return lines.join('\n').slice(0,2000);
+}
 export function rankPayload(rows,squad,owner,requested=1,season){
   const {page,pages}=pageState(rows.length,requested);
   const id=target=>`pbrank:${owner}:${target}:${squadKey(squad,season)}`;
@@ -11,7 +36,7 @@ export function rankPayload(rows,squad,owner,requested=1,season){
     new ButtonBuilder().setCustomId(`pbrank:counter:${owner}`).setLabel(`${page} / ${pages}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
     new ButtonBuilder().setCustomId(id(page+1)).setLabel('Далее').setStyle(ButtonStyle.Secondary).setDisabled(page===pages),
   );
-  return {content:'',attachments:[],files:[new AttachmentBuilder(leaderboard(rows,squad,page,season),{name:'rank.png'})],components:[controls],allowedMentions:{parse:[]}};
+  return {content:rankText(rows,squad,page,season),components:[controls],allowedMentions:{parse:[]}};
 }
 export async function handleRankPage(i,store,guildId,seasons){
   if(!i.isButton?.() || !i.customId.startsWith('pbrank:'))return false;
@@ -21,33 +46,11 @@ export async function handleRankPage(i,store,guildId,seasons){
   if(i.user.id!==match[1]){await i.reply({content:'Открой свою таблицу через /rank.',flags:MessageFlags.Ephemeral});return true;}
   const squad=store.squad(i.guildId);
   if(!squad){await i.reply({content:'Привязка полка изменилась. Открой /rank заново.',flags:MessageFlags.Ephemeral});return true;}
-  // Duplicate clicks while the same message is in flight must not queue edits
-  // or let an older image overwrite a newer one.
-  const messageKey=i.message?.id;
-  if(messageKey&&updating.has(messageKey)){await i.deferUpdate();return true;}
-  if(messageKey)updating.add(messageKey);
-  let deferred;
-  // Normally the image and season are already local. Keep the interaction
-  // alive if a missing season forces a slow external lookup.
-  const timer=setTimeout(()=>{deferred=i.deferUpdate();deferred.catch(()=>{});},1000);
+  await i.deferUpdate();
   try{
     const season=await seasons?.currentSeason();
-    if(store.squad(i.guildId)!==squad||squadKey(squad,season)!==match[3]){
-      clearTimeout(timer);
-      if(deferred){await deferred;await i.followUp({content:'Привязка полка изменилась или начался новый сезон. Открой /rank заново.',flags:MessageFlags.Ephemeral});}
-      else await i.reply({content:'Привязка полка изменилась или начался новый сезон. Открой /rank заново.',flags:MessageFlags.Ephemeral});
-      return true;
-    }
-    const payload=rankPayload(season?store.seasonRows(i.guildId,season):store.rows(i.guildId),squad,i.user.id,Number(match[2]),season);
-    clearTimeout(timer);
-    if(deferred){await deferred;await i.editReply(payload);}
-    else await i.update(payload);
-  }catch{
-    clearTimeout(timer);
-    const error={content:'Не удалось обновить таблицу. Попробуй ещё раз.',flags:MessageFlags.Ephemeral};
-    if(deferred){await deferred;await i.followUp(error);}
-    else if(i.replied||i.deferred)await i.followUp(error);
-    else await i.reply(error);
-  }finally{clearTimeout(timer);if(messageKey)updating.delete(messageKey);}
+    if(squadKey(squad,season)!==match[3]){await i.followUp({content:'Привязка полка изменилась или начался новый сезон. Открой /rank заново.',flags:MessageFlags.Ephemeral});return true;}
+    await i.editReply(rankPayload(season?store.seasonRows(i.guildId,season):store.rows(i.guildId),squad,i.user.id,Number(match[2]),season));
+  }catch{await i.followUp({content:'Не удалось обновить таблицу. Попробуй ещё раз.',flags:MessageFlags.Ephemeral});}
   return true;
 }

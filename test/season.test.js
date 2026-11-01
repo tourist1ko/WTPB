@@ -73,7 +73,7 @@ test('concurrent commands share a single update and binding changes pause it saf
 test('season date is shown on each page and buttons from a previous season expire',async()=>{
  const s=store();const payload=rankPayload(s.seasonRows(guild,season),squadron,uid,1,season);
  assert.match(leaderboardSVG(s.seasonRows(guild,season),squadron,1,season),/01\.09\.2026 - 31\.10\.2026/);
- let message;const i={isButton:()=>true,customId:payload.components[0].toJSON().components[0].custom_id,guildId:guild,user:{id:uid},deferUpdate:async()=>{},reply:async p=>message=p,followUp:async p=>message=p};
+ let message;const i={isButton:()=>true,customId:payload.components[0].toJSON().components[0].custom_id,guildId:guild,user:{id:uid},deferUpdate:async()=>{},followUp:async p=>message=p};
  await handleRankPage(i,s,guild,{currentSeason:async()=>next});assert.match(message.content,/сезон/);s.db.close();
 });
 test('admin update starts background work and reports progress, rank uses seasonal rows',async()=>{

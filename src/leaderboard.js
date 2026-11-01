@@ -1,7 +1,6 @@
 import { Resvg } from '@resvg/resvg-js';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createHash } from 'node:crypto';
 const fontFiles=['DejaVuSans.ttf','DejaVuSans-Bold.ttf'].map(name=>fileURLToPath(new URL('../assets/fonts/'+name,import.meta.url)));
 const renderOptions={font:{loadSystemFonts:false,fontFiles,defaultFontFamily:'DejaVu Sans',sansSerifFamily:'DejaVu Sans'}};
 export const PAGE_SIZE = 8;
@@ -35,30 +34,8 @@ export function leaderboardSVG(rows,squad,page=1,season) {
   });
   return svg+'</svg>';
 }
-function renderSVG(svg){
+export function renderLeaderboard(rows,squad,page=1,season){
   if(fontFiles.some(path=>!existsSync(path)))throw Error('Не найдены встроенные шрифты. Обнови папку assets/fonts вместе с ботом.');
-  return new Resvg(svg,renderOptions).render();
+  return new Resvg(leaderboardSVG(rows,squad,page,season),renderOptions).render();
 }
-export function renderLeaderboard(rows,squad,page=1,season){return renderSVG(leaderboardSVG(rows,squad,page,season));}
-// Key the image by its exact visible contents, so new stats, roster and dates
-// invalidate it immediately. The LRU bounds memory even during a long season.
-export class LeaderboardImageCache {
-  constructor({render=svg=>renderSVG(svg).asPng(),maxEntries=128,maxBytes=16*1024*1024}={}){
-    Object.assign(this,{render,maxEntries,maxBytes});this.images=new Map();this.bytes=0;
-  }
-  png(svg){
-    const key=createHash('sha256').update(svg).digest('hex');
-    const cached=this.images.get(key);
-    if(cached){this.images.delete(key);this.images.set(key,cached);return cached;}
-    const png=this.render(svg);
-    if(png.length>this.maxBytes)return png;
-    this.images.set(key,png);this.bytes+=png.length;
-    while(this.images.size>this.maxEntries||this.bytes>this.maxBytes){
-      const first=this.images.keys().next().value;
-      this.bytes-=this.images.get(first).length;this.images.delete(first);
-    }
-    return png;
-  }
-}
-const images=new LeaderboardImageCache();
-export function leaderboard(rows,squad,page=1,season){return images.png(leaderboardSVG(rows,squad,page,season));}
+export function leaderboard(rows,squad,page=1,season){return renderLeaderboard(rows,squad,page,season).asPng();}

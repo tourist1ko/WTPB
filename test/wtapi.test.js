@@ -28,8 +28,7 @@ test('zstd protobuf full/light headers decode and map only registered squad',()=
   const b=battleForSquad(r,'Beyond Alive','┾105HP┿');
   assert.equal(b.result,'loss');assert.equal(b.players.length,2);
   assert.equal(battleForSquad(r,'Enemy','Enemy').result,'win');
-  assert.deepEqual(b.players[0],{nickname:'tourist__',tankKills:2,airKills:1,deaths:1,spawns:1});
-  assert.equal(battleForSquad(r,'Enemy','Enemy').players[0].spawns,1);
+  assert.deepEqual(b.players[0],{nickname:'tourist__',tankKills:2,airKills:1,deaths:1});
   assert.equal(battleForSquad(r,'Another','Other'),null);
  }
  assert.throws(()=>decodeReplay(pack(fixture(),{version:4})),/схема 4/);

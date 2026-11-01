@@ -11,11 +11,10 @@ const members=new Map([['1',{id:'1',nickname:'tourist__ (Айбар)',user:{bot:
 test('real session supplied by user maps raw air/ground fields and explicit result',()=>{
  const b=archiveBattle(known.row,known.scene,'Beyond Alive','┾105HP┿');
  assert.equal(b.result,'loss');assert.equal(b.id,'4ad212e8001639a5');assert.equal(b.players.length,8);
- assert.deepEqual(b.players.find(p=>p.nickname==='tourist__'),{nickname:'tourist__',tankKills:0,airKills:0,deaths:1,spawns:1});
+ assert.deepEqual(b.players.find(p=>p.nickname==='tourist__'),{nickname:'tourist__',tankKills:0,airKills:0,deaths:1});
  assert.equal(b.players.reduce((n,p)=>n+p.tankKills,0),0);assert.equal(b.players.reduce((n,p)=>n+p.airKills,0),1);assert.equal(b.players.reduce((n,p)=>n+p.deaths,0),8);
  const enemy=archiveBattle(known.row,known.scene,'Enemy','╖TEHb╖');assert.equal(enemy.result,'win');
- assert.deepEqual(enemy.players.find(p=>p.nickname==='blacksmith86'),{nickname:'blacksmith86',tankKills:1,airKills:2,deaths:1,spawns:1});
- assert.equal(enemy.players.find(p=>p.deaths===0).spawns,1);
+ assert.deepEqual(enemy.players.find(p=>p.nickname==='blacksmith86'),{nickname:'blacksmith86',tankKills:1,airKills:2,deaths:1});
  assert.equal(archiveBattle(win.row,win.scene,'Beyond Alive','┾105HP┿').result,'win');
  assert.equal(archiveBattle(known.row,known.scene,'Wrong','105H'),null);
  assert.throws(()=>archiveBattle({...known.row,team1Kills:10},known.scene,'Beyond Alive','┾105HP┿'),/сумма убийств/);
@@ -43,14 +42,14 @@ test('public source uses observed URLs without auth, handles ETag and throttling
  await assert.rejects(blocked.list('tag'),e=>e instanceof SourceError&&e.retryMs===600000);
  const huge=new TacticalSource({fetchImpl:async()=>new Response('x',{headers:{'Content-Length':'99999999'}})});await assert.rejects(huge.list('tag'),/слишком большой/);
 });
-test('archive polling uses only manually added players and never requests the Discord roster',async()=>{
+test('archive polling automatically registers every squadron player and never requests the Discord roster',async()=>{
  const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');store.addPlayer('g','1','tourist__');let now=Date.parse(known.row.playedAtUtc)+3600000,details=0;
  const source={list:async()=>({total:1,items:[known.row]}),battle:async(...args)=>{details++;return archiveBattle(args[0],known.scene,args[1],args[2]);}};
  const client={guilds:{cache:new Map([['g',{members:{fetch:async()=>{throw Error("Full roster must not be requested");}}}]])}};
  const live=new ArchiveBattles({store,client,guildId:'g',source,now:()=>now,pause:async()=>{},log:()=>{}});
  try{
-  live.stopped=false;await live.tick();let rows=store.rows('g',members);assert.equal(rows.length,1);assert.equal(rows[0].losses,1);assert.equal(rows[0].deaths,1);assert.equal(store.pendingCount('g'),0);
-  now+=60001;await live.tick();assert.equal(details,1);assert.equal(store.rows('g',members)[0].losses,1);
+  live.stopped=false;await live.tick();let rows=store.rows('g');assert.equal(rows.length,8);const own=rows.find(p=>p.nick==='tourist__');assert.equal(own.losses,1);assert.equal(own.deaths,1);assert.equal(store.pendingCount('g'),0);
+  now+=60001;await live.tick();assert.equal(details,1);assert.equal(store.rows('g').find(p=>p.nick==='tourist__').losses,1);
   assert.equal(store.ingest('g',{...archiveBattle(known.row,known.scene,'Beyond Alive','┾105HP┿'),id:'5391392491559074213'},members).duplicate,true);
  }finally{live.stop();store.db.close();}
 });
@@ -64,14 +63,13 @@ test('polling paginates initial 24 h, ignores arcade and respects request backof
   now+=60001;await live.tick();assert.equal(calls.length,count);assert.match(live.status(),/limited/);
  }finally{live.stop();store.db.close();}
 });
-test('all eight manual registrations count, empty roster pauses discovery until registration',async()=>{
+test('empty roster does not block discovery; all players are registered from the battle report',async()=>{
  const store=new RatingStore(':memory:');store.register('g','Beyond Alive','┾105HP┿');
  const battle=archiveBattle(known.row,known.scene,'Beyond Alive','┾105HP┿');let queries=0;
  const source={list:async()=>{queries++;return {total:1,items:[known.row]};},battle:async()=>battle};
  const live=new ArchiveBattles({store,client:{},guildId:'g',source,now:()=>Date.parse(known.row.playedAtUtc)+3600000,pause:async()=>{},log:()=>{}});
  try{
-  live.stopped=false;await live.tick();assert.equal(queries,0);assert.match(live.status(),/addplayer/);
-  battle.players.forEach((p,i)=>store.addPlayer('g',String(i+1),p.nickname));await live.tick();
+  live.stopped=false;await live.tick();assert.equal(queries,1);
   assert.equal(store.rows('g').length,8);assert.equal(store.rows('g').reduce((n,p)=>n+p.losses,0),8);assert.equal(store.pendingCount('g'),0);
  }finally{live.stop();store.db.close();}
 });
